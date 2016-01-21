@@ -204,6 +204,24 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
         assertTable(1, table, true);
     }
 
+    @Test
+    public void testNative() throws Exception
+    {
+        if (!canTest) {
+            return;
+        }
+
+        String table = "TEST1";
+
+        dropTable(table);
+        createTable(table);
+        insertRecord(table);
+
+        tester.run(convertYml("/sqlserver/yml/test-native.yml"));
+
+        assertTable(1, table);
+    }
+
     private void assertTable(int skip, String table) throws Exception
     {
         assertTable(skip, table, false);
