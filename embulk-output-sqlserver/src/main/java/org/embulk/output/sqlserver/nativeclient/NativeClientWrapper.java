@@ -1,5 +1,6 @@
 package org.embulk.output.sqlserver.nativeclient;
 
+import java.nio.ByteBuffer;
 import java.sql.SQLException;
 
 import jnr.ffi.LibraryLoader;
@@ -42,34 +43,35 @@ public class NativeClientWrapper
     }
 
     public void open(String server, int port, Optional<String> instance,
-            String database, Optional<String> user, Optional<String> password)
+            String database, Optional<String> user, Optional<String> password,
+            String table)
                     throws SQLException
     {
         // environment handle
         Pointer envHandlePointer = createPointerPointer();
-        check("SQLAllocHandle(SQL_HANDLE_ENV)", client.SQLAllocHandle(
+        checkSQLResult("SQLAllocHandle(SQL_HANDLE_ENV)", client.SQLAllocHandle(
                 NativeClient.SQL_HANDLE_ENV,
                 null,
                 envHandlePointer));
         envHandle = envHandlePointer.getPointer(0);
-
+/*
         // set ODBC version
-        check("SQLSetEnvAttr(SQL_ATTR_ODBC_VERSION)", client.SQLSetEnvAttr(
+        checkSQLResult("SQLSetEnvAttr(SQL_ATTR_ODBC_VERSION)", client.SQLSetEnvAttr(
                 envHandle,
                 NativeClient.SQL_ATTR_ODBC_VERSION,
                 Pointer.wrap(Runtime.getSystemRuntime(), NativeClient.SQL_OV_ODBC3),
                 NativeClient.SQL_IS_INTEGER));
-
+*/
         // ODBC handle
         Pointer odbcHandlePointer = createPointerPointer();
-        check("SQLAllocHandle(SQL_HANDLE_DBC)", client.SQLAllocHandle(
+        checkSQLResult("SQLAllocHandle(SQL_HANDLE_DBC)", client.SQLAllocHandle(
                 NativeClient.SQL_HANDLE_DBC,
                 envHandle,
                 odbcHandlePointer));
         odbcHandle = odbcHandlePointer.getPointer(0);
 
         // set BULK COPY mode
-        check("SQLSetConnectAttr(SQL_COPT_SS_BCP)", client.SQLSetConnectAttrW(
+        checkSQLResult("SQLSetConnectAttr(SQL_COPT_SS_BCP)", client.SQLSetConnectAttrW(
                 odbcHandle,
                 NativeClient.SQL_COPT_SS_BCP,
                 Pointer.wrap(Runtime.getSystemRuntime(), NativeClient.SQL_BCP_ON),
@@ -93,10 +95,55 @@ public class NativeClientWrapper
             logger.info("connection string = " + connectionString);
         }
 
-        check("SQLDriverConnect", client.SQLDriverConnectW(odbcHandle, null,
+        checkSQLResult("SQLDriverConnect", client.SQLDriverConnectW(odbcHandle, null,
                 toWideChars(connectionString.toString()), NativeClient.SQL_NTS,
                 null, NativeClient.SQL_NTS, null,
                 NativeClient.SQL_DRIVER_NOPROMPT));
+
+        StringBuilder fullTableName = new StringBuilder();
+        fullTableName.append("[");
+        fullTableName.append(database);
+        fullTableName.append("].");
+        fullTableName.append(".[");
+        fullTableName.append(table);
+        fullTableName.append("]");
+        checkBCPResult("bcp_init", client.bcp_initW(
+                odbcHandlePointer,
+                toWideChars(fullTableName.toString()),
+                null,
+                null,
+                NativeClient.DB_IN));
+    }
+
+    public void bindValue(int columnIndex, String value) throws SQLException
+    {
+        Pointer pointer = toChars(value);
+        checkBCPResult("bcp_bind", client.bcp_bind(
+                odbcHandle,
+                pointer,
+                0,
+                (int)pointer.size(),
+                null,
+                0,
+                NativeClient.SQLCHARACTER,
+                columnIndex));
+
+    }
+
+    public void sendRow() throws SQLException
+    {
+        checkBCPResult("bcp_sendrow", client.bcp_sendrow(odbcHandle));
+    }
+
+    public void commit(boolean done) throws SQLException
+    {
+        int result = client.bcp_done(odbcHandle);
+        if (result < 0) {
+            throwException("bcp_done", NativeClient.FAIL);
+        } else {
+            logger.info(String.format("SQL Server Native Client : %,d rows have bean loaded.", result));
+        }
+
     }
 
     public void close()
@@ -114,30 +161,6 @@ public class NativeClientWrapper
     private Pointer createPointerPointer()
     {
         return new ArrayMemoryIO(Runtime.getSystemRuntime(), com.kenai.jffi.Type.POINTER.size());
-    }
-
-    private void check(String operation, short result) throws SQLException
-    {
-        switch (result) {
-            case NativeClient.SQL_SUCCESS:
-            case NativeClient.SQL_SUCCESS_WITH_INFO:
-                break;
-
-            default:
-                if (odbcHandle != null) {
-                    Pointer sqlState = new ArrayMemoryIO(Runtime.getSystemRuntime(), 12);
-                    Pointer errorMessage = new ArrayMemoryIO(Runtime.getSystemRuntime(), 512);
-
-                    short getDiagRecResult = client.SQLGetDiagRecW(NativeClient.SQL_HANDLE_DBC, odbcHandle, (short)1,
-                            sqlState, null,
-                            errorMessage, (short)(errorMessage.size() / 2), null);
-                    if (getDiagRecResult == NativeClient.SQL_SUCCESS) {
-                        throwException("SQL Server Native Client : %s failed (sql state = %s) : %s", operation, toString(sqlState), toString(errorMessage));
-                    }
-                }
-
-                throwException("SQL Server Native Client : %s failed : %d.", operation, result);
-        }
     }
 
     private String toString(Pointer wcharPointer)
@@ -163,12 +186,89 @@ public class NativeClientWrapper
         return pointer;
     }
 
-
-    private void throwException(String format, Object... args) throws SQLException
+    private Pointer toChars(String s)
     {
-        errorOccured = true;
-        String message = String.format(format, args);
+        return Pointer.wrap(Runtime.getSystemRuntime(), ByteBuffer.wrap(s.getBytes()));
+    }
+
+    private void checkSQLResult(String operation, short result) throws SQLException
+    {
+        switch (result) {
+            case NativeClient.SQL_SUCCESS:
+                break;
+
+            case NativeClient.SQL_SUCCESS_WITH_INFO:
+                StringBuilder sqlState = new StringBuilder();
+                StringBuilder sqlMessage = new StringBuilder();
+                if (getErrorMessage(sqlState, sqlMessage)) {
+                    logger.info(String.format("SQL Server Native Client : %s : %s", operation, sqlMessage));
+                }
+                break;
+
+            default:
+                throwException(operation, result);
+        }
+    }
+
+    private void checkBCPResult(String operation, short result) throws SQLException
+    {
+        switch (result) {
+            case NativeClient.SUCCEED:
+                break;
+
+            default:
+                throwException(operation, result);
+        }
+    }
+
+    private void throwException(String operation, short result) throws SQLException
+    {
+        String message = String.format("SQL Server Native Client : %s failed : %d.", operation, result);
+
+        if (odbcHandle != null) {
+            StringBuilder sqlState = new StringBuilder();
+            StringBuilder sqlMessage = new StringBuilder();
+            if (getErrorMessage(sqlState, sqlMessage)) {
+                message = String.format("SQL Server Native Client : %s failed (sql state = %s) : %s", operation, sqlState, sqlMessage);
+            }
+        }
+
         logger.error(message);
         throw new SQLException(message);
     }
+
+    private boolean getErrorMessage(StringBuilder sqlState, StringBuilder sqlMessage)
+    {
+        // (5 (SQL state length) + 1 (terminator length)) * 2 (wchar size)
+        Pointer sqlStatePointer = new ArrayMemoryIO(Runtime.getSystemRuntime(), 12);
+        Pointer sqlMessagePointer = new ArrayMemoryIO(Runtime.getSystemRuntime(), 512);
+
+        for (short record = 1;; record++) {
+            short result = client.SQLGetDiagRecW(
+                    NativeClient.SQL_HANDLE_DBC,
+                    odbcHandle,
+                    record,
+                    sqlStatePointer,
+                    null,
+                    sqlMessagePointer,
+                    (short)(sqlMessagePointer.size() / 2),
+                    null);
+
+            if (result == NativeClient.SQL_SUCCESS) {
+                if (record > 1) {
+                    sqlState.append(",");
+                }
+                sqlState.append(toString(sqlStatePointer));
+                sqlMessage.append(toString(sqlMessagePointer));
+            } else {
+                if (record == 1) {
+                    return false;
+                }
+                break;
+            }
+        }
+
+        return true;
+    }
+
 }

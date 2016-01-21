@@ -16,13 +16,14 @@ public class NativeBatchInsert implements BatchInsert
 {
     private NativeClientWrapper client = new NativeClientWrapper();
 
-
     private final String server;
     private final int port;
     private final Optional<String> instance;
     private final String database;
     private final Optional<String> user;
     private final Optional<String> password;
+
+    private int currentColumnIndex;
 
     public NativeBatchInsert(String server, int port, Optional<String> instance,
             String database, Optional<String> user, Optional<String> password)
@@ -33,13 +34,15 @@ public class NativeBatchInsert implements BatchInsert
         this.database = database;
         this.user = user;
         this.password = password;
+
+        currentColumnIndex = 1;
     }
 
 
     @Override
     public void prepare(String loadTable, JdbcSchema insertSchema) throws SQLException
     {
-        client.open(server, port, instance, database, user, password);
+        client.open(server, port, instance, database, user, password, loadTable);
     }
 
     @Override
@@ -49,119 +52,121 @@ public class NativeBatchInsert implements BatchInsert
     }
 
     @Override
-    public void add() throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void add() throws IOException, SQLException
+    {
+        System.out.println("#add");
+        client.sendRow();
     }
 
     @Override
-    public void setNull(int sqlType) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setNull(int sqlType) throws IOException, SQLException
+    {
+        System.out.println("#null");
     }
 
     @Override
-    public void setBoolean(boolean v) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setBoolean(boolean v) throws IOException, SQLException
+    {
+        System.out.println("#boolean");
     }
 
     @Override
-    public void setByte(byte v) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setByte(byte v) throws IOException, SQLException
+    {
+        System.out.println("#byte");
     }
 
     @Override
-    public void setShort(short v) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setShort(short v) throws IOException, SQLException
+    {
+        System.out.println("#short");
     }
 
     @Override
-    public void setInt(int v) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setInt(int v) throws IOException, SQLException
+    {
+        System.out.println("#int");
     }
 
     @Override
-    public void setLong(long v) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setLong(long v) throws IOException, SQLException
+    {
+        System.out.println("#long");
     }
 
     @Override
-    public void setFloat(float v) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setFloat(float v) throws IOException, SQLException
+    {
+        System.out.println("#float");
     }
 
     @Override
-    public void setDouble(double v) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setDouble(double v) throws IOException, SQLException
+    {
+        System.out.println("#double");
     }
 
     @Override
-    public void setBigDecimal(BigDecimal v) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setBigDecimal(BigDecimal v) throws IOException, SQLException
+    {
+        System.out.println("#decimal");
     }
 
     @Override
-    public void setString(String v) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setString(String v) throws IOException, SQLException
+    {
+        client.bindValue(currentColumnIndex++, v);
+        System.out.println("#string");
     }
 
     @Override
-    public void setNString(String v) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setNString(String v) throws IOException, SQLException
+    {
+        client.bindValue(currentColumnIndex++, v);
+        System.out.println("#nstring");
     }
 
     @Override
-    public void setBytes(byte[] v) throws IOException, SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setBytes(byte[] v) throws IOException, SQLException
+    {
+        System.out.println("#bytes");
     }
 
     @Override
-    public void setSqlDate(Timestamp v, Calendar cal) throws IOException,
-            SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setSqlDate(Timestamp v, Calendar cal) throws IOException, SQLException
+    {
+        System.out.println("#date");
     }
 
     @Override
-    public void setSqlTime(Timestamp v, Calendar cal) throws IOException,
-            SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setSqlTime(Timestamp v, Calendar cal) throws IOException, SQLException
+    {
+        System.out.println("#time");
     }
 
     @Override
-    public void setSqlTimestamp(Timestamp v, Calendar cal) throws IOException,
-            SQLException {
-        // TODO 自動生成されたメソッド・スタブ
-
+    public void setSqlTimestamp(Timestamp v, Calendar cal) throws IOException, SQLException
+    {
+        System.out.println("#timestamp");
     }
 
     @Override
     public void flush() throws IOException, SQLException
     {
-        // TODO 自動生成されたメソッド・スタブ
+        System.out.println("##flush");
     }
 
     @Override
     public void finish() throws IOException, SQLException
     {
-        flush();
+        System.out.println("##finish");
+        client.commit(true);
     }
 
     @Override
     public void close() throws IOException, SQLException
     {
+        System.out.println("##close");
         client.close();
     }
 

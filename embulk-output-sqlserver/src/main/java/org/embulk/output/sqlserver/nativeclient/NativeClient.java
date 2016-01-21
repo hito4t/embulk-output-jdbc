@@ -23,6 +23,12 @@ public interface NativeClient
     static int SQL_IS_INTEGER = -6;
     static short SQL_NTS = -3;
 
+    static int SQLCHARACTER = 0x2F;
+
+    static short FAIL = 0;
+    static short SUCCEED = 1;
+    static int DB_IN = 1;
+
     short SQLAllocHandle(short handleType, Pointer inputHandle, Pointer outputHandle);
 
     short SQLSetEnvAttr(Pointer environmentHandle, short attribute, Pointer value, int stringLength);
@@ -40,4 +46,15 @@ public interface NativeClient
             Pointer sqlState, Pointer nativeErrorPtr,
             Pointer messageText, short bufferLength, Pointer textLengthPtr);
 
+    short bcp_initA(Pointer hdbc, String szTable, Pointer szDataFile, Pointer szErrorFile, int eDirection);
+    short bcp_initW(Pointer hdbc, Pointer szTable, Pointer szDataFile, Pointer szErrorFile, int eDirection);
+
+    short bcp_bind(Pointer hdbc,
+            Pointer pData, int cbIndicator, int cbData,
+            Pointer pTerm, int cbTerm,
+            int eDataType, int idxServerCol);
+
+    short bcp_sendrow(Pointer hdbc);
+
+    int bcp_done(Pointer hdbc);
 }
