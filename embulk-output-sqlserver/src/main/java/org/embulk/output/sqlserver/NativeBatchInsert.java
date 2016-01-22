@@ -85,25 +85,25 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void setByte(byte v) throws IOException, SQLException
     {
-        System.out.println("#byte");
+        client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setShort(short v) throws IOException, SQLException
     {
-        System.out.println("#short");
+        client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setInt(int v) throws IOException, SQLException
     {
-        System.out.println("#int");
+        client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setLong(long v) throws IOException, SQLException
     {
-        System.out.println("#long");
+        client.bindValue(nextColumnIndex(), v);
     }
 
     @Override

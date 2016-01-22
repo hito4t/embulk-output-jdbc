@@ -119,6 +119,21 @@ public class NativeClientWrapper
                 NativeClient.DB_IN));
     }
 
+    public void bindNull(int columnIndex) throws SQLException
+    {
+        Pointer pointer = prepareBuffer(columnIndex, 0);
+        checkBCPResult("bcp_bind", client.bcp_bind(
+                odbcHandle,
+                pointer,
+                0,
+                NativeClient.SQL_NULL_DATA,
+                null,
+                0,
+                NativeClient.SQLCHARACTER,
+                columnIndex));
+
+    }
+
     public void bindValue(int columnIndex, String value) throws SQLException
     {
         byte[] bytes = value.getBytes();
@@ -137,17 +152,70 @@ public class NativeClientWrapper
 
     }
 
-    public void bindNull(int columnIndex) throws SQLException
+    public void bindValue(int columnIndex, byte value) throws SQLException
     {
-        Pointer pointer = prepareBuffer(columnIndex, 0);
+        Pointer pointer = prepareBuffer(columnIndex, 1);
+        pointer.putByte(0, value);
+
         checkBCPResult("bcp_bind", client.bcp_bind(
                 odbcHandle,
                 pointer,
                 0,
-                NativeClient.SQL_NULL_DATA,
+                (int)pointer.size(),
                 null,
                 0,
-                NativeClient.SQLCHARACTER,
+                NativeClient.SQLINT1,
+                columnIndex));
+
+    }
+
+    public void bindValue(int columnIndex, short value) throws SQLException
+    {
+        Pointer pointer = prepareBuffer(columnIndex, 2);
+        pointer.putShort(0, value);
+
+        checkBCPResult("bcp_bind", client.bcp_bind(
+                odbcHandle,
+                pointer,
+                0,
+                (int)pointer.size(),
+                null,
+                0,
+                NativeClient.SQLINT2,
+                columnIndex));
+
+    }
+
+    public void bindValue(int columnIndex, int value) throws SQLException
+    {
+        Pointer pointer = prepareBuffer(columnIndex, 4);
+        pointer.putInt(0, value);
+
+        checkBCPResult("bcp_bind", client.bcp_bind(
+                odbcHandle,
+                pointer,
+                0,
+                (int)pointer.size(),
+                null,
+                0,
+                NativeClient.SQLINT4,
+                columnIndex));
+
+    }
+
+    public void bindValue(int columnIndex, long value) throws SQLException
+    {
+        Pointer pointer = prepareBuffer(columnIndex, 8);
+        pointer.putLong(0, value);
+
+        checkBCPResult("bcp_bind", client.bcp_bind(
+                odbcHandle,
+                pointer,
+                0,
+                (int)pointer.size(),
+                null,
+                0,
+                NativeClient.SQLINT8,
                 columnIndex));
 
     }
@@ -156,7 +224,8 @@ public class NativeClientWrapper
     {
         Pointer pointer = boundPointers.get(columnIndex);
         if (pointer == null || pointer.size() < size) {
-            pointer = Pointer.wrap(Runtime.getSystemRuntime(), ByteBuffer.allocateDirect(size));
+            Runtime runtime = Runtime.getSystemRuntime();
+            pointer = Pointer.wrap(runtime, ByteBuffer.allocateDirect(size).order(runtime.byteOrder()));
             boundPointers.put(columnIndex, pointer);
         }
         return pointer;

@@ -6,6 +6,10 @@ public interface NativeClient
 {
     static int SQL_NULL_DATA = -1;
     static int SQLCHARACTER = 0x2F;
+    static int SQLINT1 = 0x30;
+    static int SQLINT2 = 0x34;
+    static int SQLINT4 = 0x38;
+    static int SQLINT8 = 0x7F;
 
     static short FAIL = 0;
     static short SUCCEED = 1;
