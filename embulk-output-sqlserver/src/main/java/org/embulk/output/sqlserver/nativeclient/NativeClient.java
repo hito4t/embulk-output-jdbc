@@ -27,5 +27,7 @@ public interface NativeClient
 
     short bcp_sendrow(Pointer hdbc);
 
+    int bcp_batch(Pointer hdbc);
+
     int bcp_done(Pointer hdbc);
 }

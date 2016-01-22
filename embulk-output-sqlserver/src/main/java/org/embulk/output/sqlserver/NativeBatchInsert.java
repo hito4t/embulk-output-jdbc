@@ -7,13 +7,18 @@ import java.util.Calendar;
 
 import org.embulk.output.jdbc.BatchInsert;
 import org.embulk.output.jdbc.JdbcSchema;
+import org.embulk.output.jdbc.StandardBatchInsert;
 import org.embulk.output.sqlserver.nativeclient.NativeClientWrapper;
+import org.embulk.spi.Exec;
 import org.embulk.spi.time.Timestamp;
+import org.slf4j.Logger;
 
 import com.google.common.base.Optional;
 
 public class NativeBatchInsert implements BatchInsert
 {
+    private final Logger logger = Exec.getLogger(StandardBatchInsert.class);
+
     private NativeClientWrapper client = new NativeClientWrapper();
 
     private final String server;
@@ -22,6 +27,10 @@ public class NativeBatchInsert implements BatchInsert
     private final String database;
     private final Optional<String> user;
     private final Optional<String> password;
+
+    private int batchWeight;
+    private int batchRows;
+    private long totalRows;
 
     private int columnCount;
     private int lastColumnIndex;
@@ -50,13 +59,16 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public int getBatchWeight()
     {
-        return 0;
+        return batchWeight;
     }
 
     @Override
     public void add() throws IOException, SQLException
     {
         client.sendRow();
+
+        batchRows++;
+        batchWeight += 32;  // add weight as overhead of each rows
     }
 
     private int nextColumnIndex()
@@ -73,43 +85,43 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void setNull(int sqlType) throws IOException, SQLException
     {
-        client.bindNull(nextColumnIndex());
+        batchWeight += client.bindNull(nextColumnIndex());
     }
 
     @Override
     public void setBoolean(boolean v) throws IOException, SQLException
     {
-        client.bindValue(nextColumnIndex(), v);
+        batchWeight += client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setByte(byte v) throws IOException, SQLException
     {
-        client.bindValue(nextColumnIndex(), v);
+        batchWeight += client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setShort(short v) throws IOException, SQLException
     {
-        client.bindValue(nextColumnIndex(), v);
+        batchWeight += client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setInt(int v) throws IOException, SQLException
     {
-        client.bindValue(nextColumnIndex(), v);
+        batchWeight += client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setLong(long v) throws IOException, SQLException
     {
-        client.bindValue(nextColumnIndex(), v);
+        batchWeight += client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setFloat(float v) throws IOException, SQLException
     {
-        client.bindValue(nextColumnIndex(), v);
+        batchWeight += client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
@@ -163,20 +175,32 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void flush() throws IOException, SQLException
     {
-        System.out.println("##flush");
+        logger.info(String.format("Loading %,d rows", batchRows));
+        long startTime = System.currentTimeMillis();
+
+        client.commit(false);
+
+        double seconds = (System.currentTimeMillis() - startTime) / 1000.0;
+        totalRows += batchRows;
+
+        logger.info(String.format("> %.2f seconds (loaded %,d rows in total)", seconds, totalRows));
+
+        batchRows = 0;
+        batchWeight = 0;
     }
 
     @Override
     public void finish() throws IOException, SQLException
     {
-        System.out.println("##finish");
+        if (getBatchWeight() != 0) {
+            flush();
+        }
         client.commit(true);
     }
 
     @Override
     public void close() throws IOException, SQLException
     {
-        System.out.println("##close");
         client.close();
     }
 

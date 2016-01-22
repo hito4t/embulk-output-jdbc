@@ -1,6 +1,7 @@
 package org.embulk.output.sqlserver.nativeclient;
 
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -24,6 +25,7 @@ public class NativeClientWrapper
     private final Logger logger = Exec.getLogger(getClass());
 
     private Charset charset;
+    private Charset wideCharset;
     private Pointer envHandle;
     private Pointer odbcHandle;
 
@@ -43,6 +45,7 @@ public class NativeClientWrapper
         }
 
         charset = Charset.forName("MS932");
+        wideCharset = Charset.forName("UTF-16LE");
     }
 
     public void open(String server, int port, Optional<String> instance,
@@ -123,7 +126,7 @@ public class NativeClientWrapper
                 NativeClient.DB_IN));
     }
 
-    public void bindNull(int columnIndex) throws SQLException
+    public int bindNull(int columnIndex) throws SQLException
     {
         Pointer pointer = prepareBuffer(columnIndex, 0);
         checkBCPResult("bcp_bind", client.bcp_bind(
@@ -135,10 +138,10 @@ public class NativeClientWrapper
                 0,
                 NativeClient.SQLCHARACTER,
                 columnIndex));
-
+        return (int)pointer.size();
     }
 
-    public void bindValue(int columnIndex, String value) throws SQLException
+    public int bindValue(int columnIndex, String value) throws SQLException
     {
         ByteBuffer bytes = charset.encode(value);
         Pointer pointer = prepareBuffer(columnIndex, bytes.remaining());
@@ -153,10 +156,10 @@ public class NativeClientWrapper
                 0,
                 NativeClient.SQLCHARACTER,
                 columnIndex));
-
+        return (int)pointer.size();
     }
 
-    public void bindValue(int columnIndex, boolean value) throws SQLException
+    public int bindValue(int columnIndex, boolean value) throws SQLException
     {
         Pointer pointer = prepareBuffer(columnIndex, 1);
         pointer.putByte(0, value ? (byte)1 : (byte)0);
@@ -170,10 +173,10 @@ public class NativeClientWrapper
                 0,
                 NativeClient.SQLBIT,
                 columnIndex));
-
+        return (int)pointer.size();
     }
 
-    public void bindValue(int columnIndex, byte value) throws SQLException
+    public int bindValue(int columnIndex, byte value) throws SQLException
     {
         Pointer pointer = prepareBuffer(columnIndex, 1);
         pointer.putByte(0, value);
@@ -187,10 +190,10 @@ public class NativeClientWrapper
                 0,
                 NativeClient.SQLINT1,
                 columnIndex));
-
+        return (int)pointer.size();
     }
 
-    public void bindValue(int columnIndex, short value) throws SQLException
+    public int bindValue(int columnIndex, short value) throws SQLException
     {
         Pointer pointer = prepareBuffer(columnIndex, 2);
         pointer.putShort(0, value);
@@ -204,10 +207,10 @@ public class NativeClientWrapper
                 0,
                 NativeClient.SQLINT2,
                 columnIndex));
-
+        return (int)pointer.size();
     }
 
-    public void bindValue(int columnIndex, int value) throws SQLException
+    public int bindValue(int columnIndex, int value) throws SQLException
     {
         Pointer pointer = prepareBuffer(columnIndex, 4);
         pointer.putInt(0, value);
@@ -221,10 +224,10 @@ public class NativeClientWrapper
                 0,
                 NativeClient.SQLINT4,
                 columnIndex));
-
+        return (int)pointer.size();
     }
 
-    public void bindValue(int columnIndex, long value) throws SQLException
+    public int bindValue(int columnIndex, long value) throws SQLException
     {
         Pointer pointer = prepareBuffer(columnIndex, 8);
         pointer.putLongLong(0, value);
@@ -238,10 +241,10 @@ public class NativeClientWrapper
                 0,
                 NativeClient.SQLINT8,
                 columnIndex));
-
+        return (int)pointer.size();
     }
 
-    public void bindValue(int columnIndex, float value) throws SQLException
+    public int bindValue(int columnIndex, float value) throws SQLException
     {
         Pointer pointer = prepareBuffer(columnIndex, 4);
         pointer.putFloat(0, value);
@@ -255,10 +258,10 @@ public class NativeClientWrapper
                 0,
                 NativeClient.SQLFLT4,
                 columnIndex));
-
+        return (int)pointer.size();
     }
 
-    public void bindValue(int columnIndex, double value) throws SQLException
+    public int bindValue(int columnIndex, double value) throws SQLException
     {
         Pointer pointer = prepareBuffer(columnIndex, 8);
         pointer.putDouble(0, value);
@@ -272,7 +275,7 @@ public class NativeClientWrapper
                 0,
                 NativeClient.SQLFLT8,
                 columnIndex));
-
+        return (int)pointer.size();
     }
 
     private Pointer prepareBuffer(int columnIndex, int size)
@@ -293,11 +296,21 @@ public class NativeClientWrapper
 
     public void commit(boolean done) throws SQLException
     {
-        int result = client.bcp_done(odbcHandle);
-        if (result < 0) {
-            throwException("bcp_done", NativeClient.FAIL);
+        String operation;
+        int result;
+        if (done) {
+            operation = "bcp_batch";
+            result = client.bcp_batch(odbcHandle);
         } else {
-            logger.info(String.format("SQL Server Native Client : %,d rows have bean loaded.", result));
+            operation = "bcp_done";
+            result = client.bcp_done(odbcHandle);
+        }
+        if (result < 0) {
+            throwException(operation, NativeClient.FAIL);
+        } else {
+            if (result > 0) {
+                logger.info(String.format("SQL Server Native Client : %,d rows have bean loaded.", result));
+            }
         }
 
     }
@@ -319,32 +332,21 @@ public class NativeClientWrapper
         return new ArrayMemoryIO(Runtime.getSystemRuntime(), com.kenai.jffi.Type.POINTER.size());
     }
 
-    private String toString(Pointer wcharPointer)
+    private String toString(Pointer wcharPointer, int length)
     {
-        StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < wcharPointer.size(); i += 2) {
-            short c = wcharPointer.getShort(i);
-            if (c == 0) {
-                break;
-            }
-            builder.append((char)c);
-        }
-        return builder.toString();
+        byte[] bytes = new byte[length * 2];
+        wcharPointer.get(0, bytes, 0, length * 2);
+        CharBuffer chars = wideCharset.decode(ByteBuffer.wrap(bytes));
+        return chars.toString();
     }
 
     private Pointer toWideChars(String s)
     {
-        Pointer pointer = new ArrayMemoryIO(Runtime.getSystemRuntime(), (s.length() + 1) * 2);
-        for (int i = 0; i < s.length(); i++) {
-            pointer.putShort(i * 2, (short)s.charAt(i));
-        }
-        pointer.putShort(s.length() * 2, (short)0);
+        ByteBuffer bytes = wideCharset.encode(s);
+        Pointer pointer = new ArrayMemoryIO(Runtime.getSystemRuntime(), bytes.remaining() + 2);
+        pointer.put(0, bytes.array(), 0, bytes.remaining());
+        pointer.putShort(bytes.remaining(), (short)0);
         return pointer;
-    }
-
-    private Pointer toChars(String s)
-    {
-        return Pointer.wrap(Runtime.getSystemRuntime(), ByteBuffer.wrap(s.getBytes()));
     }
 
     private void checkSQLResult(String operation, short result) throws SQLException
@@ -395,9 +397,11 @@ public class NativeClientWrapper
 
     private boolean getErrorMessage(StringBuilder sqlState, StringBuilder sqlMessage)
     {
+        final int sqlStateLength = 5;
         // (5 (SQL state length) + 1 (terminator length)) * 2 (wchar size)
-        Pointer sqlStatePointer = new ArrayMemoryIO(Runtime.getSystemRuntime(), 12);
+        Pointer sqlStatePointer = new ArrayMemoryIO(Runtime.getSystemRuntime(), (sqlStateLength + 1) * 2);
         Pointer sqlMessagePointer = new ArrayMemoryIO(Runtime.getSystemRuntime(), 512);
+        Pointer lengthPointer = new ArrayMemoryIO(Runtime.getSystemRuntime(), 4);
 
         for (short record = 1;; record++) {
             short result = odbc.SQLGetDiagRecW(
@@ -408,14 +412,14 @@ public class NativeClientWrapper
                     null,
                     sqlMessagePointer,
                     (short)(sqlMessagePointer.size() / 2),
-                    null);
+                    lengthPointer);
 
             if (result == ODBC.SQL_SUCCESS) {
                 if (record > 1) {
                     sqlState.append(",");
                 }
-                sqlState.append(toString(sqlStatePointer));
-                sqlMessage.append(toString(sqlMessagePointer));
+                sqlState.append(toString(sqlStatePointer, sqlStateLength));
+                sqlMessage.append(toString(sqlMessagePointer, lengthPointer.getInt(0)));
             } else {
                 if (record == 1) {
                     return false;
