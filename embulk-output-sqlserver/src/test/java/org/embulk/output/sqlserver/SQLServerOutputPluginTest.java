@@ -284,7 +284,7 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
         String table = "TEST4";
 
         dropTable(table);
-        executeSQL(String.format("CREATE TABLE %S (ITEM1 DECIMAL(20,2), ITEM2 NUMERIC(20,2))", table));
+        executeSQL(String.format("CREATE TABLE %S (ITEM1 DECIMAL(20,2), ITEM2 NUMERIC(20,2), ITEM3 SMALLMONEY, ITEM4 MONEY, ITEM5 REAL, ITEM6 FLOAT)", table));
 
         tester.run(convertYml("/sqlserver/yml/test-native-decimal.yml"));
 
@@ -294,11 +294,19 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
             List<Object> row = rows.get(0);
             assertEquals(new BigDecimal("1.20"), row.get(0));
             assertEquals(new BigDecimal("12345678901234567.89"), row.get(1));
+            assertEquals(new BigDecimal("123.4500"), row.get(2));
+            assertEquals(new BigDecimal("678.9000"), row.get(3));
+            assertEquals(0.01234F, row.get(4));
+            assertEquals(0.05678D, row.get(5));
         }
         {
             List<Object> row = rows.get(1);
             assertEquals(new BigDecimal("2.30"), row.get(0));
             assertEquals(null, row.get(1));
+            assertEquals(null, row.get(2));
+            assertEquals(null, row.get(3));
+            assertEquals(null, row.get(4));
+            assertEquals(null, row.get(5));
         }
     }
 

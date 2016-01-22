@@ -8,8 +8,12 @@ in:
     delimiter: ','
     quote: ''
     columns:
-    - {name: ITEM1, type: string}
+    - {name: ITEM1, type: double}
     - {name: ITEM2, type: string}
+    - {name: ITEM3, type: string}
+    - {name: ITEM4, type: string}
+    - {name: ITEM5, type: double}
+    - {name: ITEM6, type: double}
 out:
     type: sqlserver
     host: localhost

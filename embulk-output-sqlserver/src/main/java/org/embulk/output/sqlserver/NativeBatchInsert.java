@@ -109,13 +109,13 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void setFloat(float v) throws IOException, SQLException
     {
-        System.out.println("#float");
+        client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setDouble(double v) throws IOException, SQLException
     {
-        System.out.println("#double");
+        client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
