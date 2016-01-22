@@ -1,6 +1,7 @@
 package org.embulk.output.sqlserver.nativeclient;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,6 +23,7 @@ public class NativeClientWrapper
 
     private final Logger logger = Exec.getLogger(getClass());
 
+    private Charset charset;
     private Pointer envHandle;
     private Pointer odbcHandle;
 
@@ -39,6 +41,8 @@ public class NativeClientWrapper
                 client = LibraryLoader.create(NativeClient.class).failImmediately().load("sqlncli11");
             }
         }
+
+        charset = Charset.forName("MS932");
     }
 
     public void open(String server, int port, Optional<String> instance,
@@ -136,9 +140,9 @@ public class NativeClientWrapper
 
     public void bindValue(int columnIndex, String value) throws SQLException
     {
-        byte[] bytes = value.getBytes();
-        Pointer pointer = prepareBuffer(columnIndex, bytes.length);
-        pointer.put(0, bytes, 0, bytes.length);
+        ByteBuffer bytes = charset.encode(value);
+        Pointer pointer = prepareBuffer(columnIndex, bytes.remaining());
+        pointer.put(0, bytes.array(), 0, bytes.remaining());
 
         checkBCPResult("bcp_bind", client.bcp_bind(
                 odbcHandle,

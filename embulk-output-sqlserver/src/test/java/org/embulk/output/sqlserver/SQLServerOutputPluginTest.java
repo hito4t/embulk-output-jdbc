@@ -214,7 +214,7 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
         String table = "TEST2";
 
         dropTable(table);
-        executeSQL(String.format("CREATE TABLE %S (ITEM1 CHAR(4), ITEM2 VARCHAR(8))", table));
+        executeSQL(String.format("CREATE TABLE %S (ITEM1 CHAR(4), ITEM2 VARCHAR(8), ITEM3 TEXT, ITEM4 NCHAR(4), ITEM5 NVARCHAR(8), ITEM6 NTEXT)", table));
 
         tester.run(convertYml("/sqlserver/yml/test-native-string.yml"));
 
@@ -224,11 +224,19 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
             List<Object> row = rows.get(0);
             assertEquals("A001", row.get(0));
             assertEquals("TEST", row.get(1));
+            assertEquals("Ａ", row.get(2));
+            assertEquals("あいうえ", row.get(3));
+            assertEquals("あいうえおかきく", row.get(4));
+            assertEquals("あいうえお", row.get(5));
         }
         {
             List<Object> row = rows.get(1);
             assertEquals("A002", row.get(0));
             assertEquals(null, row.get(1));
+            assertEquals(null, row.get(2));
+            assertEquals(null, row.get(3));
+            assertEquals(null, row.get(4));
+            assertEquals(null, row.get(5));
         }
     }
 
