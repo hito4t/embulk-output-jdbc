@@ -219,11 +219,16 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
         tester.run(convertYml("/sqlserver/yml/test-native-simple.yml"));
 
         List<List<Object>> rows = select(table);
-        assertEquals(1, rows.size());
+        assertEquals(2, rows.size());
         {
             List<Object> row = rows.get(0);
             assertEquals("A001", row.get(0));
             assertEquals("TEST", row.get(1));
+        }
+        {
+            List<Object> row = rows.get(1);
+            assertEquals("A002", row.get(0));
+            assertEquals(null, row.get(1));
         }
     }
 

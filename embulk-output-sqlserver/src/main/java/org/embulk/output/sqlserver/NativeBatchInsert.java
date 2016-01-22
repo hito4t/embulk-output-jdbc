@@ -23,7 +23,8 @@ public class NativeBatchInsert implements BatchInsert
     private final Optional<String> user;
     private final Optional<String> password;
 
-    private int currentColumnIndex;
+    private int columnCount;
+    private int lastColumnIndex;
 
     public NativeBatchInsert(String server, int port, Optional<String> instance,
             String database, Optional<String> user, Optional<String> password)
@@ -35,13 +36,14 @@ public class NativeBatchInsert implements BatchInsert
         this.user = user;
         this.password = password;
 
-        currentColumnIndex = 1;
+        lastColumnIndex = 0;
     }
 
 
     @Override
     public void prepare(String loadTable, JdbcSchema insertSchema) throws SQLException
     {
+        columnCount = insertSchema.getCount();
         client.open(server, port, instance, database, user, password, loadTable);
     }
 
@@ -54,14 +56,24 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void add() throws IOException, SQLException
     {
-        System.out.println("#add");
         client.sendRow();
+    }
+
+    private int nextColumnIndex()
+    {
+        int nextColumnIndex = lastColumnIndex + 1;
+        if (nextColumnIndex == columnCount) {
+            lastColumnIndex = 0;
+        } else {
+            lastColumnIndex++;
+        }
+        return nextColumnIndex;
     }
 
     @Override
     public void setNull(int sqlType) throws IOException, SQLException
     {
-        System.out.println("#null");
+        client.bindNull(nextColumnIndex());
     }
 
     @Override
@@ -115,15 +127,13 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void setString(String v) throws IOException, SQLException
     {
-        client.bindValue(currentColumnIndex++, v);
-        System.out.println("#string");
+        client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setNString(String v) throws IOException, SQLException
     {
-        client.bindValue(currentColumnIndex++, v);
-        System.out.println("#nstring");
+        client.bindValue(nextColumnIndex(), v);
     }
 
     @Override

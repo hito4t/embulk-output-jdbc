@@ -4,6 +4,7 @@ import jnr.ffi.Pointer;
 
 public interface NativeClient
 {
+    static int SQL_NULL_DATA = -1;
     static int SQLCHARACTER = 0x2F;
 
     static short FAIL = 0;
