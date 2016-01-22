@@ -275,6 +275,34 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
     }
 
     @Test
+    public void testNativeDecimal() throws Exception
+    {
+        if (!canTest) {
+            return;
+        }
+
+        String table = "TEST4";
+
+        dropTable(table);
+        executeSQL(String.format("CREATE TABLE %S (ITEM1 DECIMAL(20,2), ITEM2 NUMERIC(20,2))", table));
+
+        tester.run(convertYml("/sqlserver/yml/test-native-decimal.yml"));
+
+        List<List<Object>> rows = select(table);
+        assertEquals(2, rows.size());
+        {
+            List<Object> row = rows.get(0);
+            assertEquals(new BigDecimal("1.20"), row.get(0));
+            assertEquals(new BigDecimal("12345678901234567.89"), row.get(1));
+        }
+        {
+            List<Object> row = rows.get(1);
+            assertEquals(new BigDecimal("2.30"), row.get(0));
+            assertEquals(null, row.get(1));
+        }
+    }
+
+    @Test
     public void testNative() throws Exception
     {
         if (!canTest) {

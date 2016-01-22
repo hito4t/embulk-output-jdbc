@@ -121,7 +121,7 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void setBigDecimal(BigDecimal v) throws IOException, SQLException
     {
-        System.out.println("#decimal");
+        client.bindValue(nextColumnIndex(), v.toPlainString());
     }
 
     @Override
