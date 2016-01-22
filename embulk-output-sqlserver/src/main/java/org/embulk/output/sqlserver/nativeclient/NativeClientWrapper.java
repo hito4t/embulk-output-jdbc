@@ -15,7 +15,7 @@ import com.google.common.base.Optional;
 
 public class NativeClientWrapper
 {
-
+    private static ODBC odbc;
     private static NativeClient client;
 
     private final Logger logger = Exec.getLogger(getClass());
@@ -30,16 +30,15 @@ public class NativeClientWrapper
     public NativeClientWrapper()
     {
         synchronized (NativeClientWrapper.class) {
+            if (odbc == null) {
+                logger.info("Loading SQL Server Native Client library (odbc32).");
+                odbc = LibraryLoader.create(ODBC.class).failImmediately().load("odbc32");
+            }
             if (client == null) {
-                client = loadLibrary();
+                logger.info("Loading SQL Server Native Client library (sqlncli11).");
+                client = LibraryLoader.create(NativeClient.class).failImmediately().load("sqlncli11");
             }
         }
-    }
-
-    private NativeClient loadLibrary()
-    {
-        logger.info("Loading SQL Server Native Client library.");
-        return LibraryLoader.create(NativeClient.class).failImmediately().load("sqlncli11");
     }
 
     public void open(String server, int port, Optional<String> instance,
@@ -49,33 +48,33 @@ public class NativeClientWrapper
     {
         // environment handle
         Pointer envHandlePointer = createPointerPointer();
-        checkSQLResult("SQLAllocHandle(SQL_HANDLE_ENV)", client.SQLAllocHandle(
-                NativeClient.SQL_HANDLE_ENV,
+        checkSQLResult("SQLAllocHandle(SQL_HANDLE_ENV)", odbc.SQLAllocHandle(
+                ODBC.SQL_HANDLE_ENV,
                 null,
                 envHandlePointer));
         envHandle = envHandlePointer.getPointer(0);
-/*
+
         // set ODBC version
-        checkSQLResult("SQLSetEnvAttr(SQL_ATTR_ODBC_VERSION)", client.SQLSetEnvAttr(
+        checkSQLResult("SQLSetEnvAttr(SQL_ATTR_ODBC_VERSION)", odbc.SQLSetEnvAttr(
                 envHandle,
-                NativeClient.SQL_ATTR_ODBC_VERSION,
-                Pointer.wrap(Runtime.getSystemRuntime(), NativeClient.SQL_OV_ODBC3),
-                NativeClient.SQL_IS_INTEGER));
-*/
+                ODBC.SQL_ATTR_ODBC_VERSION,
+                Pointer.wrap(Runtime.getSystemRuntime(), ODBC.SQL_OV_ODBC3),
+                ODBC.SQL_IS_INTEGER));
+
         // ODBC handle
         Pointer odbcHandlePointer = createPointerPointer();
-        checkSQLResult("SQLAllocHandle(SQL_HANDLE_DBC)", client.SQLAllocHandle(
-                NativeClient.SQL_HANDLE_DBC,
+        checkSQLResult("SQLAllocHandle(SQL_HANDLE_DBC)", odbc.SQLAllocHandle(
+                ODBC.SQL_HANDLE_DBC,
                 envHandle,
                 odbcHandlePointer));
         odbcHandle = odbcHandlePointer.getPointer(0);
 
         // set BULK COPY mode
-        checkSQLResult("SQLSetConnectAttr(SQL_COPT_SS_BCP)", client.SQLSetConnectAttrW(
+        checkSQLResult("SQLSetConnectAttr(SQL_COPT_SS_BCP)", odbc.SQLSetConnectAttrW(
                 odbcHandle,
-                NativeClient.SQL_COPT_SS_BCP,
-                Pointer.wrap(Runtime.getSystemRuntime(), NativeClient.SQL_BCP_ON),
-                NativeClient.SQL_IS_INTEGER));
+                ODBC.SQL_COPT_SS_BCP,
+                Pointer.wrap(Runtime.getSystemRuntime(), ODBC.SQL_BCP_ON),
+                ODBC.SQL_IS_INTEGER));
 
         StringBuilder connectionString = new StringBuilder();
         connectionString.append("Driver={SQL Server Native Client 11.0};");
@@ -95,10 +94,15 @@ public class NativeClientWrapper
             logger.info("connection string = " + connectionString);
         }
 
-        checkSQLResult("SQLDriverConnect", client.SQLDriverConnectW(odbcHandle, null,
-                toWideChars(connectionString.toString()), NativeClient.SQL_NTS,
-                null, NativeClient.SQL_NTS, null,
-                NativeClient.SQL_DRIVER_NOPROMPT));
+        checkSQLResult("SQLDriverConnect", odbc.SQLDriverConnectW(
+                odbcHandle,
+                null,
+                toWideChars(connectionString.toString()),
+                ODBC.SQL_NTS,
+                null,
+                ODBC.SQL_NTS,
+                null,
+                ODBC.SQL_DRIVER_NOPROMPT));
 
         StringBuilder fullTableName = new StringBuilder();
         fullTableName.append("[");
@@ -108,7 +112,7 @@ public class NativeClientWrapper
         fullTableName.append(table);
         fullTableName.append("]");
         checkBCPResult("bcp_init", client.bcp_initW(
-                odbcHandlePointer,
+                odbcHandle,
                 toWideChars(fullTableName.toString()),
                 null,
                 null,
@@ -149,11 +153,11 @@ public class NativeClientWrapper
     public void close()
     {
         if (odbcHandle != null) {
-            client.SQLFreeHandle(NativeClient.SQL_HANDLE_DBC, odbcHandle);
+            odbc.SQLFreeHandle(ODBC.SQL_HANDLE_DBC, odbcHandle);
             odbcHandle = null;
         }
         if (envHandle != null) {
-            client.SQLFreeHandle(NativeClient.SQL_HANDLE_ENV, envHandle);
+            odbc.SQLFreeHandle(ODBC.SQL_HANDLE_ENV, envHandle);
             envHandle = null;
         }
     }
@@ -194,10 +198,10 @@ public class NativeClientWrapper
     private void checkSQLResult(String operation, short result) throws SQLException
     {
         switch (result) {
-            case NativeClient.SQL_SUCCESS:
+            case ODBC.SQL_SUCCESS:
                 break;
 
-            case NativeClient.SQL_SUCCESS_WITH_INFO:
+            case ODBC.SQL_SUCCESS_WITH_INFO:
                 StringBuilder sqlState = new StringBuilder();
                 StringBuilder sqlMessage = new StringBuilder();
                 if (getErrorMessage(sqlState, sqlMessage)) {
@@ -244,8 +248,8 @@ public class NativeClientWrapper
         Pointer sqlMessagePointer = new ArrayMemoryIO(Runtime.getSystemRuntime(), 512);
 
         for (short record = 1;; record++) {
-            short result = client.SQLGetDiagRecW(
-                    NativeClient.SQL_HANDLE_DBC,
+            short result = odbc.SQLGetDiagRecW(
+                    ODBC.SQL_HANDLE_DBC,
                     odbcHandle,
                     record,
                     sqlStatePointer,
@@ -254,7 +258,7 @@ public class NativeClientWrapper
                     (short)(sqlMessagePointer.size() / 2),
                     null);
 
-            if (result == NativeClient.SQL_SUCCESS) {
+            if (result == ODBC.SQL_SUCCESS) {
                 if (record > 1) {
                     sqlState.append(",");
                 }
