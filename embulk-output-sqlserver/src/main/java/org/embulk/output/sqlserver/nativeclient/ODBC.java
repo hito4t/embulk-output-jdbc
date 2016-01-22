@@ -2,6 +2,10 @@ package org.embulk.output.sqlserver.nativeclient;
 
 import jnr.ffi.Pointer;
 
+
+/**
+ * sqlncli11.dll also has SQLXXX methods, but we should call those methods in odbc32.dll .
+ */
 public interface ODBC
 {
     static short SQL_SUCCESS = 0;

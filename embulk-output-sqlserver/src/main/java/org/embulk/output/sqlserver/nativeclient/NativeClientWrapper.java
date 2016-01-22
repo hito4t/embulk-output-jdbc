@@ -2,6 +2,8 @@ package org.embulk.output.sqlserver.nativeclient;
 
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 
 import jnr.ffi.LibraryLoader;
 import jnr.ffi.Pointer;
@@ -23,9 +25,7 @@ public class NativeClientWrapper
     private Pointer envHandle;
     private Pointer odbcHandle;
 
-    private boolean errorOccured;
-    private boolean committedOrRollbacked;
-
+    private Map<Integer, Pointer> boundPointers = new HashMap<Integer, Pointer>();
 
     public NativeClientWrapper()
     {
@@ -121,7 +121,11 @@ public class NativeClientWrapper
 
     public void bindValue(int columnIndex, String value) throws SQLException
     {
-        Pointer pointer = toChars(value);
+        byte[] bytes = value.getBytes();
+        Pointer pointer = Pointer.wrap(Runtime.getSystemRuntime(), ByteBuffer.allocateDirect(bytes.length));
+        pointer.put(0, bytes, 0, bytes.length);
+        boundPointers.put(columnIndex, pointer);
+
         checkBCPResult("bcp_bind", client.bcp_bind(
                 odbcHandle,
                 pointer,

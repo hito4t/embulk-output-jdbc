@@ -205,6 +205,29 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
     }
 
     @Test
+    public void testNativeSimple() throws Exception
+    {
+        if (!canTest) {
+            return;
+        }
+
+        String table = "TEST2";
+
+        dropTable(table);
+        executeSQL(String.format("CREATE TABLE %S (ITEM1 CHAR(4), ITEM2 VARCHAR(8))", table));
+
+        tester.run(convertYml("/sqlserver/yml/test-native-simple.yml"));
+
+        List<List<Object>> rows = select(table);
+        assertEquals(1, rows.size());
+        {
+            List<Object> row = rows.get(0);
+            assertEquals("A001", row.get(0));
+            assertEquals("TEST", row.get(1));
+        }
+    }
+
+    @Test
     public void testNative() throws Exception
     {
         if (!canTest) {
