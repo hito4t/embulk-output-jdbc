@@ -79,7 +79,7 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void setBoolean(boolean v) throws IOException, SQLException
     {
-        System.out.println("#boolean");
+        client.bindValue(nextColumnIndex(), v);
     }
 
     @Override

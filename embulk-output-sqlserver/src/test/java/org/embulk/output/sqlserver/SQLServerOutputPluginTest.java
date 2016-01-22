@@ -241,7 +241,7 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
     }
 
     @Test
-    public void testNativeNumber() throws Exception
+    public void testNativeInteger() throws Exception
     {
         if (!canTest) {
             return;
@@ -250,9 +250,9 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
         String table = "TEST3";
 
         dropTable(table);
-        executeSQL(String.format("CREATE TABLE %S (ITEM1 TINYINT, ITEM2 SMALLINT, ITEM3 INT, ITEM4 BIGINT)", table));
+        executeSQL(String.format("CREATE TABLE %S (ITEM1 TINYINT, ITEM2 SMALLINT, ITEM3 INT, ITEM4 BIGINT, ITEM5 BIT)", table));
 
-        tester.run(convertYml("/sqlserver/yml/test-native-number.yml"));
+        tester.run(convertYml("/sqlserver/yml/test-native-integer.yml"));
 
         List<List<Object>> rows = select(table);
         assertEquals(2, rows.size());
@@ -262,6 +262,7 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
             assertEquals((short)1111, row.get(1));
             assertEquals(11111111, row.get(2));
             assertEquals(111111111111L, row.get(3));
+            assertEquals(true, row.get(4));
         }
         {
             List<Object> row = rows.get(1);
@@ -269,6 +270,7 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
             assertEquals(null, row.get(1));
             assertEquals(null, row.get(2));
             assertEquals(null, row.get(3));
+            assertEquals(null, row.get(4));
         }
     }
 
@@ -305,11 +307,11 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
         {
             Iterator<Object> i2 = i1.next().iterator();
             assertEquals("A001", i2.next());
-            assertEquals(Short.valueOf((short)0), i2.next());
-            assertEquals(Short.valueOf((short)1234), i2.next());
-            assertEquals(Integer.valueOf(123456), i2.next());
-            assertEquals(Long.valueOf(12345678901L), i2.next());
-            assertEquals(Boolean.FALSE, i2.next());
+            assertEquals((short)0, i2.next());
+            assertEquals((short)1234, i2.next());
+            assertEquals(123456, i2.next());
+            assertEquals(12345678901L, i2.next());
+            assertEquals(false, i2.next());
             assertEquals(new BigDecimal("1.23"), i2.next());
             assertEquals(new BigDecimal("3.456"), i2.next());
             assertEquals(new BigDecimal("12.3400"), i2.next());
@@ -335,11 +337,11 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
         {
             Iterator<Object> i2 = i1.next().iterator();
             assertEquals("A002", i2.next());
-            assertEquals(Short.valueOf((short)255), i2.next());
-            assertEquals(Short.valueOf((short)-32768), i2.next());
-            assertEquals(Integer.valueOf(-2147483648), i2.next());
-            assertEquals(Long.valueOf(-9223372036854775808L), i2.next());
-            assertEquals(Boolean.TRUE, i2.next());
+            assertEquals((short)255, i2.next());
+            assertEquals((short)-32768, i2.next());
+            assertEquals(-2147483648, i2.next());
+            assertEquals(-9223372036854775808L, i2.next());
+            assertEquals(true, i2.next());
             assertEquals(new BigDecimal("-9999999999.99"), i2.next());
             assertEquals(new BigDecimal("-99.999"), i2.next());
             assertEquals(new BigDecimal("-214748.3648"), i2.next());

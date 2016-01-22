@@ -12,6 +12,7 @@ in:
     - {name: ITEM2, type: long}
     - {name: ITEM3, type: long}
     - {name: ITEM4, type: long}
+    - {name: ITEM5, type: long}
 out:
     type: sqlserver
     host: localhost

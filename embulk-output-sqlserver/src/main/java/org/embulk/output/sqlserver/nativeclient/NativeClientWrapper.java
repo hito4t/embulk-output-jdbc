@@ -156,6 +156,23 @@ public class NativeClientWrapper
 
     }
 
+    public void bindValue(int columnIndex, boolean value) throws SQLException
+    {
+        Pointer pointer = prepareBuffer(columnIndex, 1);
+        pointer.putByte(0, value ? (byte)1 : (byte)0);
+
+        checkBCPResult("bcp_bind", client.bcp_bind(
+                odbcHandle,
+                pointer,
+                0,
+                (int)pointer.size(),
+                null,
+                0,
+                NativeClient.SQLBIT,
+                columnIndex));
+
+    }
+
     public void bindValue(int columnIndex, byte value) throws SQLException
     {
         Pointer pointer = prepareBuffer(columnIndex, 1);
@@ -210,7 +227,10 @@ public class NativeClientWrapper
     public void bindValue(int columnIndex, long value) throws SQLException
     {
         Pointer pointer = prepareBuffer(columnIndex, 8);
-        pointer.putLong(0, value);
+        pointer.putLongLong(0, value);
+
+        long s  =pointer.size();
+        long k = pointer.getLong(0);
 
         checkBCPResult("bcp_bind", client.bcp_bind(
                 odbcHandle,
