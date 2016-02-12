@@ -3,14 +3,17 @@ package org.embulk.output.sqlserver;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 
 import org.embulk.output.jdbc.BatchInsert;
+import org.embulk.output.jdbc.JdbcColumn;
 import org.embulk.output.jdbc.JdbcSchema;
 import org.embulk.output.jdbc.StandardBatchInsert;
+import org.embulk.output.oracle.TimestampFormat;
 import org.embulk.output.sqlserver.nativeclient.NativeClientWrapper;
 import org.embulk.spi.Exec;
 import org.embulk.spi.time.Timestamp;
@@ -38,6 +41,9 @@ public class NativeBatchInsert implements BatchInsert
     private int columnCount;
     private int lastColumnIndex;
 
+    private DateFormat[] formats;
+
+
     public NativeBatchInsert(String server, int port, Optional<String> instance,
             String database, Optional<String> user, Optional<String> password)
     {
@@ -57,6 +63,15 @@ public class NativeBatchInsert implements BatchInsert
     {
         columnCount = insertSchema.getCount();
         client.open(server, port, instance, database, user, password, loadTable);
+
+        formats = new DateFormat[insertSchema.getCount()];
+        for (int i = 0; i < insertSchema.getCount(); i++) {
+            JdbcColumn column = insertSchema.getColumn(i);
+            if (column.getSqlType() == Types.TIMESTAMP) {
+                formats[i] = new TimestampFormat("yyyy-MM-dd HH:mm:ss", column.getScaleTypeParameter());
+            }
+
+        }
     }
 
     @Override
@@ -174,9 +189,14 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void setSqlTimestamp(Timestamp v, Calendar cal) throws IOException, SQLException
     {
-        DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        int columnIndex = nextColumnIndex();
+        DateFormat format = formats[columnIndex - 1];
         format.setCalendar(cal);
-        batchWeight += client.bindValue(nextColumnIndex(), format.format(new Date(v.toEpochMilli())));
+
+        java.sql.Timestamp timestamp = new java.sql.Timestamp(v.toEpochMilli());
+        timestamp.setNanos(v.getNano());
+
+        batchWeight += client.bindValue(columnIndex, format.format(timestamp));
     }
 
     @Override
