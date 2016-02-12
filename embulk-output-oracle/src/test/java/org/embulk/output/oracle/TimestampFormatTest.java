@@ -5,7 +5,9 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import org.embulk.output.jdbc.TimestampFormat;
 import org.junit.Test;
+
 import static org.junit.Assert.assertEquals;
 
 public class TimestampFormatTest {

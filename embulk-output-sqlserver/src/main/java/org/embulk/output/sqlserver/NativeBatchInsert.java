@@ -12,7 +12,7 @@ import org.embulk.output.jdbc.BatchInsert;
 import org.embulk.output.jdbc.JdbcColumn;
 import org.embulk.output.jdbc.JdbcSchema;
 import org.embulk.output.jdbc.StandardBatchInsert;
-import org.embulk.output.oracle.TimestampFormat;
+import org.embulk.output.jdbc.TimestampFormat;
 import org.embulk.output.sqlserver.nativeclient.NativeClientWrapper;
 import org.embulk.spi.Exec;
 import org.embulk.spi.time.Timestamp;
@@ -76,7 +76,11 @@ public class NativeBatchInsert implements BatchInsert
                     break;
 
                 case Types.TIMESTAMP:
-                    formats[i] = new TimestampFormat("yyyy-MM-dd HH:mm:ss", column.getScaleTypeParameter());
+                    if (column.getSimpleTypeName().equals("SMALLDATETIME")) {
+                        formats[i] = new SmallDateTimeFormat("yyyy-MM-dd HH:mm:ss");
+                    } else {
+                        formats[i] = new TimestampFormat("yyyy-MM-dd HH:mm:ss", column.getScaleTypeParameter());
+                    }
                     break;
 
                 default:

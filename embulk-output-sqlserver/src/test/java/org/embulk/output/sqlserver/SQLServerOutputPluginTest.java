@@ -329,7 +329,7 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
         {
             List<Object> row = rows.get(0);
             assertEquals(createDate("2016/01/23"), row.get(0));
-            assertEquals(createTimestamp("2016/01/24 11:22:00", 0), row.get(1));
+            assertEquals(createTimestamp("2016/01/24 11:23:00", 0), row.get(1));
             assertEquals(createTimestamp("2016/01/25 11:22:33", 457000000), row.get(2));
             // Embulk timestamp doesn't support values under microseconds.
             assertEquals(createTimestamp("2016/01/26 11:22:33", 123456000), row.get(3));
