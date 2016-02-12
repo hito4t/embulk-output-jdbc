@@ -320,7 +320,7 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
         String table = "TEST5";
 
         dropTable(table);
-        executeSQL(String.format("CREATE TABLE %S (ITEM1 DATE, ITEM2 SMALLDATETIME, ITEM3 DATETIME)", table));
+        executeSQL(String.format("CREATE TABLE %S (ITEM1 DATE, ITEM2 SMALLDATETIME, ITEM3 DATETIME, ITEM4 DATETIME2, ITEM5 DATETIME2(2))", table));
 
         tester.run(convertYml("/sqlserver/yml/test-native-date.yml"));
 
@@ -331,15 +331,18 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
             assertEquals(createDate("2016/01/23"), row.get(0));
             assertEquals(createTimestamp("2016/01/24 11:22:00", 0), row.get(1));
             assertEquals(createTimestamp("2016/01/25 11:22:33", 457000000), row.get(2));
+            // Embulk timestamp doesn't support values under microseconds.
+            assertEquals(createTimestamp("2016/01/26 11:22:33", 123456000), row.get(3));
+            assertEquals(createTimestamp("2016/01/27 11:22:33", 890000000), row.get(4));
         }
         {
             List<Object> row = rows.get(1);
             assertEquals(null, row.get(0));
             assertEquals(null, row.get(1));
             assertEquals(null, row.get(2));
-            /*
             assertEquals(null, row.get(3));
             assertEquals(null, row.get(4));
+            /*
             assertEquals(null, row.get(5));
             */
         }

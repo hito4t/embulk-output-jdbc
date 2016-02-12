@@ -7,7 +7,6 @@ import java.sql.Types;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.Date;
 
 import org.embulk.output.jdbc.BatchInsert;
 import org.embulk.output.jdbc.JdbcColumn;
@@ -67,10 +66,18 @@ public class NativeBatchInsert implements BatchInsert
         formats = new DateFormat[insertSchema.getCount()];
         for (int i = 0; i < insertSchema.getCount(); i++) {
             JdbcColumn column = insertSchema.getColumn(i);
-            if (column.getSqlType() == Types.TIMESTAMP) {
-                formats[i] = new TimestampFormat("yyyy-MM-dd HH:mm:ss", column.getScaleTypeParameter());
-            }
+            switch (column.getSqlType()) {
+                case Types.DATE:
+                    formats[i] = new SimpleDateFormat("yyyy-MM-dd");
+                    break;
 
+                case Types.TIMESTAMP:
+                    formats[i] = new TimestampFormat("yyyy-MM-dd HH:mm:ss", column.getScaleTypeParameter());
+                    break;
+
+                default:
+                    break;
+            }
         }
     }
 
@@ -175,9 +182,7 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void setSqlDate(Timestamp v, Calendar cal) throws IOException, SQLException
     {
-        DateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-        format.setCalendar(cal);
-        batchWeight += client.bindValue(nextColumnIndex(), format.format(new Date(v.toEpochMilli())));
+        setSqlTimestamp(v, cal);
     }
 
     @Override
