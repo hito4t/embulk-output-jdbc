@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.Calendar;
+import java.util.Date;
 
 import org.embulk.output.jdbc.BatchInsert;
 import org.embulk.output.jdbc.JdbcSchema;
@@ -14,6 +15,7 @@ import org.embulk.spi.time.Timestamp;
 import org.slf4j.Logger;
 
 import com.google.common.base.Optional;
+import com.ibm.icu.text.SimpleDateFormat;
 
 public class NativeBatchInsert implements BatchInsert
 {
@@ -127,36 +129,37 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void setDouble(double v) throws IOException, SQLException
     {
-        client.bindValue(nextColumnIndex(), v);
+        batchWeight += client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setBigDecimal(BigDecimal v) throws IOException, SQLException
     {
-        client.bindValue(nextColumnIndex(), v.toPlainString());
+        batchWeight += client.bindValue(nextColumnIndex(), v.toPlainString());
     }
 
     @Override
     public void setString(String v) throws IOException, SQLException
     {
-        client.bindValue(nextColumnIndex(), v);
+        batchWeight += client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setNString(String v) throws IOException, SQLException
     {
-        client.bindValue(nextColumnIndex(), v);
+        batchWeight += client.bindValue(nextColumnIndex(), v);
     }
 
     @Override
     public void setBytes(byte[] v) throws IOException, SQLException
     {
-        System.out.println("#bytes");
+        throw new SQLException("Unsupported");
     }
 
     @Override
     public void setSqlDate(Timestamp v, Calendar cal) throws IOException, SQLException
     {
+        batchWeight += client.bindValue(nextColumnIndex(), new SimpleDateFormat("yyyy-MM-dd").format(new Date(v.toEpochMilli())));
         System.out.println("#date");
     }
 
