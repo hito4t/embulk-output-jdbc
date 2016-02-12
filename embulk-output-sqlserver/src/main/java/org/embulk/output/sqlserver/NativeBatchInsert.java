@@ -71,6 +71,10 @@ public class NativeBatchInsert implements BatchInsert
                     formats[i] = new SimpleDateFormat("yyyy-MM-dd");
                     break;
 
+                case Types.TIME:
+                    formats[i] = new TimestampFormat("HH:mm:ss", column.getScaleTypeParameter());
+                    break;
+
                 case Types.TIMESTAMP:
                     formats[i] = new TimestampFormat("yyyy-MM-dd HH:mm:ss", column.getScaleTypeParameter());
                     break;
@@ -188,7 +192,7 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void setSqlTime(Timestamp v, Calendar cal) throws IOException, SQLException
     {
-        throw new SQLException("Unsupported");
+        setSqlTimestamp(v, cal);
     }
 
     @Override

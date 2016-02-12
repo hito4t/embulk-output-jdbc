@@ -13,6 +13,8 @@ in:
     - {name: ITEM3, type: timestamp, format: '%Y/%m/%d %H:%M:%S.%N'}
     - {name: ITEM4, type: timestamp, format: '%Y/%m/%d %H:%M:%S.%N'}
     - {name: ITEM5, type: timestamp, format: '%Y/%m/%d %H:%M:%S.%N'}
+    - {name: ITEM6, type: timestamp, format: '%H:%M:%S.%N'}
+    - {name: ITEM7, type: timestamp, format: '%H:%M:%S.%N'}
 out:
     type: sqlserver
     host: localhost
