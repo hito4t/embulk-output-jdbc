@@ -320,26 +320,28 @@ public class SQLServerOutputPluginTest extends AbstractJdbcOutputPluginTest
         String table = "TEST5";
 
         dropTable(table);
-        executeSQL(String.format("CREATE TABLE %S (ITEM1 DATE)", table));
+        executeSQL(String.format("CREATE TABLE %S (ITEM1 DATE, ITEM2 SMALLDATETIME)", table));
 
         tester.run(convertYml("/sqlserver/yml/test-native-date.yml"));
 
         List<List<Object>> rows = select(table);
-        assertEquals(1, rows.size());
+        assertEquals(2, rows.size());
         {
             List<Object> row = rows.get(0);
             assertEquals(createDate("2016/01/23"), row.get(0));
+            assertEquals(createTimestamp("2016/01/24 11:22:00", 0), row.get(1));
         }
-        /*
         {
             List<Object> row = rows.get(1);
-            assertEquals(new BigDecimal("2.30"), row.get(0));
+            assertEquals(null, row.get(0));
             assertEquals(null, row.get(1));
+            /*
             assertEquals(null, row.get(2));
             assertEquals(null, row.get(3));
             assertEquals(null, row.get(4));
             assertEquals(null, row.get(5));
-        }*/
+            */
+        }
     }
 
     @Test

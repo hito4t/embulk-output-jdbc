@@ -9,6 +9,7 @@ in:
     quote: ''
     columns:
     - {name: ITEM1, type: timestamp, format: '%Y/%m/%d'}
+    - {name: ITEM2, type: timestamp, format: '%Y/%m/%d %H:%M:%S'}
 out:
     type: sqlserver
     host: localhost

@@ -3,6 +3,8 @@ package org.embulk.output.sqlserver;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -15,7 +17,6 @@ import org.embulk.spi.time.Timestamp;
 import org.slf4j.Logger;
 
 import com.google.common.base.Optional;
-import com.ibm.icu.text.SimpleDateFormat;
 
 public class NativeBatchInsert implements BatchInsert
 {
@@ -159,20 +160,23 @@ public class NativeBatchInsert implements BatchInsert
     @Override
     public void setSqlDate(Timestamp v, Calendar cal) throws IOException, SQLException
     {
-        batchWeight += client.bindValue(nextColumnIndex(), new SimpleDateFormat("yyyy-MM-dd").format(new Date(v.toEpochMilli())));
-        System.out.println("#date");
+        DateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+        format.setCalendar(cal);
+        batchWeight += client.bindValue(nextColumnIndex(), format.format(new Date(v.toEpochMilli())));
     }
 
     @Override
     public void setSqlTime(Timestamp v, Calendar cal) throws IOException, SQLException
     {
-        System.out.println("#time");
+        throw new SQLException("Unsupported");
     }
 
     @Override
     public void setSqlTimestamp(Timestamp v, Calendar cal) throws IOException, SQLException
     {
-        System.out.println("#timestamp");
+        DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        format.setCalendar(cal);
+        batchWeight += client.bindValue(nextColumnIndex(), format.format(new Date(v.toEpochMilli())));
     }
 
     @Override
