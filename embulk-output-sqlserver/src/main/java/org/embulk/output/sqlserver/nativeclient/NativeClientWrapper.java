@@ -36,11 +36,19 @@ public class NativeClientWrapper
         synchronized (NativeClientWrapper.class) {
             if (odbc == null) {
                 logger.info("Loading SQL Server Native Client library (odbc32).");
-                odbc = LibraryLoader.create(ODBC.class).failImmediately().load("odbc32");
+                try {
+                    odbc = LibraryLoader.create(ODBC.class).failImmediately().load("odbc32");
+                } catch (UnsatisfiedLinkError e) {
+                    throw new RuntimeException("odbc32.dll not found.", e);
+                }
             }
             if (client == null) {
                 logger.info("Loading SQL Server Native Client library (sqlncli11).");
-                client = LibraryLoader.create(NativeClient.class).failImmediately().load("sqlncli11");
+                try {
+                    client = LibraryLoader.create(NativeClient.class).failImmediately().load("sqlncli11");
+                } catch (UnsatisfiedLinkError e) {
+                    throw new RuntimeException("sqlncli11.dll not found.", e);
+                }
             }
         }
 
