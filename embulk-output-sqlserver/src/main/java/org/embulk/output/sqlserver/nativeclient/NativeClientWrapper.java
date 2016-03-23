@@ -307,11 +307,11 @@ public class NativeClientWrapper
         String operation;
         int result;
         if (done) {
-            operation = "bcp_batch";
-            result = client.bcp_batch(odbcHandle);
-        } else {
             operation = "bcp_done";
             result = client.bcp_done(odbcHandle);
+        } else {
+            operation = "bcp_batch";
+            result = client.bcp_batch(odbcHandle);
         }
         if (result < 0) {
             throwException(operation, NativeClient.FAIL);
