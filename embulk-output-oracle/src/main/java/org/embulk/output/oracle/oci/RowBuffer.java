@@ -5,7 +5,9 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.sql.SQLException;
 
+import jnr.ffi.Pointer;
 import jnr.ffi.Runtime;
+import jnr.ffi.provider.jffi.ByteBufferMemoryIO;
 
 import org.embulk.output.oracle.DirectBatchInsert;
 import org.embulk.output.oracle.oci.ColumnDefinition;
@@ -25,9 +27,11 @@ public class RowBuffer
     private int currentColumn = 0;
     private long totalRows = 0;
 
+    private final short[] columnSizes;
     private final short[] sizes;
     private final ByteBuffer buffer;
     private final ByteBuffer defaultBuffer;
+    private ByteBuffer currentRowBuffer;
 
     public RowBuffer(OCIWrapper oci, TableDefinition table, int rowCount)
     {
@@ -44,8 +48,10 @@ public class RowBuffer
         buffer = ByteBuffer.allocateDirect(rowSize * rowCount).order(Runtime.getSystemRuntime().byteOrder());
         // position is not updated
         defaultBuffer = buffer.duplicate();
+        currentRowBuffer = buffer.duplicate();
 
-        sizes = new short[table.getColumnCount() * rowCount];
+        sizes = new short[table.getColumnCount() * oci.getMaxRowCount()];
+        columnSizes = new short[table.getColumnCount()];
     }
 
     public ByteBuffer getBuffer() {
@@ -99,12 +105,22 @@ public class RowBuffer
     private void next(short size) throws SQLException
     {
         sizes[currentRow * table.getColumnCount() + currentColumn] = size;
+        columnSizes[currentColumn] = size;
 
         currentColumn++;
         if (currentColumn == table.getColumnCount()) {
             currentColumn = 0;
             currentRow++;
-            load();
+
+            /*
+            if (currentRow >= oci.getMaxRowCount()) {
+                load();
+            }
+            */
+
+            oci.addRow(new ByteBufferMemoryIO(Runtime.getSystemRuntime(), currentRowBuffer), columnSizes);
+
+            currentRowBuffer = buffer.duplicate();
         }
     }
 
@@ -124,6 +140,7 @@ public class RowBuffer
     }
 
     public void load() throws SQLException {
+        /*
         if (currentRow > 0) {
             logger.info(String.format("Loading %,d rows", currentRow));
 
@@ -141,13 +158,7 @@ public class RowBuffer
             currentColumn = 0;
             buffer.clear();
         }
-    }
-
-    public void clear()
-    {
-        currentRow = 0;
-        currentColumn = 0;
-        buffer.clear();
+        */
     }
 
 }

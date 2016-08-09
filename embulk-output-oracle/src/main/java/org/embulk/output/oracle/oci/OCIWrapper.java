@@ -278,11 +278,15 @@ public class OCIWrapper
                 OCI.OCI_ATTR_NUM_ROWS,
                 errHandle));
         maxRowCount = maxRowCountPointer.getInt(0);
+
+        logger.info(String.format("maxRowCount = %,d", maxRowCount));
     }
 
     public int getMaxRowCount() {
         return maxRowCount;
     }
+
+    private int rowCount;
 
     public void addValue(int rowIndex, short colIndex, Pointer pointer, short size) throws SQLException {
         check("OCIDirPathColArrayEntrySet", oci.OCIDirPathColArrayEntrySet(
@@ -294,6 +298,31 @@ public class OCIWrapper
                 size,
                 OCI.OCI_DIRPATH_COL_COMPLETE));
     }
+
+    public synchronized void addRow(Pointer pointer, short[] columnSizes) throws SQLException {
+        int position = 0;
+        int rowCount = 0;
+        for (short col = 0; col < tableDefinition.getColumnCount(); col++) {
+            short size = columnSizes[col];
+
+            check("OCIDirPathColArrayEntrySet", oci.OCIDirPathColArrayEntrySet(
+                    dpcaHandle,
+                    errHandle,
+                    rowCount,
+                    col,
+                    new BoundedMemoryIO(pointer, position, size),
+                    size,
+                    OCI.OCI_DIRPATH_COL_COMPLETE));
+
+            position += size;
+        }
+        rowCount++;
+
+        loadRows(rowCount);
+        rowCount = 0;
+    }
+
+    //public void
 
 
 
@@ -335,6 +364,8 @@ public class OCIWrapper
 
     private void loadRows(int rowCount) throws SQLException
     {
+        logger.info(String.format("Loading %,d rows", rowCount));
+
         for (int offset = 0; offset < rowCount;) {
             check("OCIDirPathStreamReset", oci.OCIDirPathStreamReset(
                     dpstrHandle,
