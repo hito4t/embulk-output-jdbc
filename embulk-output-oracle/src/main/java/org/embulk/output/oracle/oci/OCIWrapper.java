@@ -128,6 +128,14 @@ public class OCIWrapper
                 0,
                 null));
         dpHandle = dpHandlePointer.getPointer(0);
+
+        check("OCIAttrSet(OCI_ATTR_NUM_ROWS)", oci.OCIAttrSet(
+                dpHandle,
+                OCI.OCI_HTYPE_DIRPATH_CTX,
+                createPointer(10000),
+                4,
+                OCI.OCI_ATTR_NUM_ROWS,
+                errHandle));
     }
 
     public void prepareLoad(TableDefinition tableDefinition) throws SQLException
