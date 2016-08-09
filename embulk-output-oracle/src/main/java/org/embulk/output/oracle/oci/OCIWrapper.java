@@ -3,6 +3,7 @@ package org.embulk.output.oracle.oci;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.sql.SQLException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import jnr.ffi.LibraryLoader;
 import jnr.ffi.Pointer;
@@ -356,8 +357,23 @@ public class OCIWrapper
         */
     }
 
+    private AtomicBoolean loading = new AtomicBoolean();
+
+    private void waitLoaded() {
+        while (loading.get()) {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                // TODO 自動生成された catch ブロック
+                e.printStackTrace();
+            }
+        }
+    }
+
     private void loadRows(int rowCount) throws SQLException
     {
+        waitLoaded();
+
         for (int offset = 0; offset < rowCount;) {
             check("OCIDirPathStreamReset", oci.OCIDirPathStreamReset(
                     dpstrHandle,
@@ -376,12 +392,35 @@ public class OCIWrapper
                 check("OCIDirPathColArrayToStream", result);
             }
 
-            long t2 = System.currentTimeMillis();
-            check("OCIDirPathLoadStream", oci.OCIDirPathLoadStream(
-                    dpHandle,
-                    dpstrHandle,
-                    errHandle));
-            loadTime += System.currentTimeMillis() - t2;
+            if (result == OCI.OCI_SUCCESS) {
+                loading.set(true);
+                Thread thread = new Thread() {
+                    @Override
+                    public void run() {
+                        try {
+                            long t2 = System.currentTimeMillis();
+                            check("OCIDirPathLoadStream", oci.OCIDirPathLoadStream(
+                                    dpHandle,
+                                    dpstrHandle,
+                                    errHandle));
+                            loadTime += System.currentTimeMillis() - t2;
+                            loading.set(false);
+
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                };
+                thread.start();
+
+            } else {
+                long t2 = System.currentTimeMillis();
+                check("OCIDirPathLoadStream", oci.OCIDirPathLoadStream(
+                        dpHandle,
+                        dpstrHandle,
+                        errHandle));
+                loadTime += System.currentTimeMillis() - t2;
+            }
 
             if (result == OCI.OCI_SUCCESS) {
                 offset = rowCount;
@@ -401,6 +440,8 @@ public class OCIWrapper
 
     public void commit() throws SQLException
     {
+        waitLoaded();
+
         committedOrRollbacked = true;
         logger.info("OCI : start to commit.");
 
@@ -417,6 +458,8 @@ public class OCIWrapper
 
     public void rollback() throws SQLException
     {
+        waitLoaded();
+
         committedOrRollbacked = true;
         logger.info("OCI : start to rollback.");
 
