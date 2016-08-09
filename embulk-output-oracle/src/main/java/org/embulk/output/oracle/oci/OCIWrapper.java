@@ -31,6 +31,7 @@ public class OCIWrapper
 
     private TableDefinition tableDefinition;
     private int maxRowCount;
+    private long totalRows;
 
     private boolean errorOccured;
     private boolean committedOrRollbacked;
@@ -69,7 +70,7 @@ public class OCIWrapper
         throw new UnsatisfiedLinkError("Cannot find library: " + libraryNames);
     }
 
-    public void open(String dbName, String userName, String password) throws SQLException
+    public synchronized void open(String dbName, String userName, String password) throws SQLException
     {
         Pointer envHandlePointer = createPointerPointer();
         check("OCIEnvCreate", oci.OCIEnvCreate(
@@ -126,7 +127,7 @@ public class OCIWrapper
         dpHandle = dpHandlePointer.getPointer(0);
     }
 
-    public void prepareLoad(TableDefinition tableDefinition) throws SQLException
+    public synchronized void prepareLoad(TableDefinition tableDefinition) throws SQLException
     {
         this.tableDefinition = tableDefinition;
 
@@ -301,7 +302,6 @@ public class OCIWrapper
 
     public synchronized void addRow(Pointer pointer, short[] columnSizes) throws SQLException {
         int position = 0;
-        int rowCount = 0;
         for (short col = 0; col < tableDefinition.getColumnCount(); col++) {
             short size = columnSizes[col];
 
@@ -318,14 +318,12 @@ public class OCIWrapper
         }
         rowCount++;
 
-        loadRows(rowCount);
-        rowCount = 0;
+        if (rowCount >= maxRowCount) {
+            loadRows();
+        }
     }
 
-    //public void
-
-
-
+/*
     public void loadBuffer(RowBuffer rowBuffer) throws SQLException
     {
         Pointer pointer = new ByteBufferMemoryIO(Runtime.getSystemRuntime(), rowBuffer.getBuffer());
@@ -361,10 +359,11 @@ public class OCIWrapper
             loadRows(rowCount);
         }
     }
-
-    private void loadRows(int rowCount) throws SQLException
+*/
+    private void loadRows() throws SQLException
     {
         logger.info(String.format("Loading %,d rows", rowCount));
+        long startTime = System.currentTimeMillis();
 
         for (int offset = 0; offset < rowCount;) {
             check("OCIDirPathStreamReset", oci.OCIDirPathStreamReset(
@@ -401,10 +400,19 @@ public class OCIWrapper
                 offset += loadedRowCount.getInt(0);
             }
         }
+
+        double seconds = (System.currentTimeMillis() - startTime) / 1000.0;
+        totalRows += rowCount;
+        logger.info(String.format("> %.2f seconds (loaded %,d rows in total)", seconds, totalRows));
+        rowCount = 0;
     }
 
-    public void commit() throws SQLException
+    public synchronized void commit() throws SQLException
     {
+        if (rowCount > 0) {
+            loadRows();
+        }
+
         committedOrRollbacked = true;
         logger.info("OCI : start to commit.");
 
@@ -416,7 +424,7 @@ public class OCIWrapper
         }
     }
 
-    public void rollback() throws SQLException
+    public synchronized void rollback() throws SQLException
     {
         committedOrRollbacked = true;
         logger.info("OCI : start to rollback.");
@@ -429,7 +437,7 @@ public class OCIWrapper
         }
     }
 
-    public void close() throws SQLException
+    public synchronized void close() throws SQLException
     {
         if (dpHandle != null) {
             try {
