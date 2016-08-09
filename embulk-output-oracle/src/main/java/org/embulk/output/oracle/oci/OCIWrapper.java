@@ -79,7 +79,7 @@ public class OCIWrapper
         Pointer envHandlePointer = createPointerPointer();
         check("OCIEnvCreate", oci.OCIEnvCreate(
                 envHandlePointer,
-                OCI.OCI_THREADED | OCI.OCI_OBJECT,
+                /*OCI.OCI_THREADED |*/ OCI.OCI_OBJECT,
                 null,
                 null,
                 null,
@@ -133,7 +133,7 @@ public class OCIWrapper
         check("OCIAttrSet(OCI_ATTR_NUM_ROWS)", oci.OCIAttrSet(
                 dpHandle,
                 OCI.OCI_HTYPE_DIRPATH_CTX,
-                createPointer(10000),
+                createPointer(100000),
                 4,
                 OCI.OCI_ATTR_NUM_ROWS,
                 errHandle));
@@ -360,6 +360,7 @@ public class OCIWrapper
     private AtomicBoolean loading = new AtomicBoolean();
 
     private void waitLoaded() {
+        /*
         while (loading.get()) {
             try {
                 Thread.sleep(1);
@@ -368,6 +369,7 @@ public class OCIWrapper
                 e.printStackTrace();
             }
         }
+        */
     }
 
     private void loadRows(int rowCount) throws SQLException
@@ -392,6 +394,7 @@ public class OCIWrapper
                 check("OCIDirPathColArrayToStream", result);
             }
 
+            /*
             if (result == OCI.OCI_SUCCESS) {
                 loading.set(true);
                 Thread thread = new Thread() {
@@ -413,14 +416,14 @@ public class OCIWrapper
                 };
                 thread.start();
 
-            } else {
+            } else {*/
                 long t2 = System.currentTimeMillis();
                 check("OCIDirPathLoadStream", oci.OCIDirPathLoadStream(
                         dpHandle,
                         dpstrHandle,
                         errHandle));
                 loadTime += System.currentTimeMillis() - t2;
-            }
+            //}
 
             if (result == OCI.OCI_SUCCESS) {
                 offset = rowCount;
