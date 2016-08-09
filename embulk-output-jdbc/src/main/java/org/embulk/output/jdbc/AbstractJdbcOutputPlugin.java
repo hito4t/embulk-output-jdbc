@@ -877,7 +877,7 @@ public abstract class AbstractJdbcOutputPlugin
             } else {
                 destTable = task.getIntermediateTables().get().get(0);
             }
-            batch.prepare(destTable, insertIntoSchema);
+            batch.prepare(destTable, insertIntoSchema, taskIndex);
 
             PluginPageOutput output = new PluginPageOutput(reader, batch, columnSetters, task.getBatchSize(), task);
             batch = null;

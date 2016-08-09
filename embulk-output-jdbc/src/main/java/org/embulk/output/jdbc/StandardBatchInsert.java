@@ -34,7 +34,7 @@ public class StandardBatchInsert
         this.mergeConfig = mergeConfig;
     }
 
-    public void prepare(String loadTable, JdbcSchema insertSchema) throws SQLException
+    public void prepare(String loadTable, JdbcSchema insertSchema, int taskIndex) throws SQLException
     {
         this.connection = connector.connect(true);
         this.index = 1;  // PreparedStatement index begings from 1

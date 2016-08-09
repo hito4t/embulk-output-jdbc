@@ -8,7 +8,7 @@ import org.embulk.spi.time.Timestamp;
 
 public interface BatchInsert
 {
-    public void prepare(String loadTable, JdbcSchema insertSchema) throws SQLException;
+    public void prepare(String loadTable, JdbcSchema insertSchema, int taskIndex) throws SQLException;
 
     public int getBatchWeight();
 

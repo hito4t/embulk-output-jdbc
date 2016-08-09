@@ -36,6 +36,10 @@ public interface OCI
     static int OCI_ATTR_NUM_COLS = 102;
     static int OCI_ATTR_LIST_COLUMNS = 103;
     static int OCI_ATTR_DIRPATH_NO_INDEX_ERRORS = 2013;
+    static int OCI_ATTR_DIRPATH_PARALLEL = 80;
+    static int OCI_ATTR_DIRPATH_SKIPINDEX_METHOD = 145;
+
+    static byte OCI_DIRPATH_INDEX_MAINT_SKIP_ALL = 4;
 
     static int OCI_DTYPE_PARAM = 53;
 

@@ -27,7 +27,7 @@ public class PostgreSQLCopyBatchInsert
     }
 
     @Override
-    public void prepare(String loadTable, JdbcSchema insertSchema) throws SQLException
+    public void prepare(String loadTable, JdbcSchema insertSchema, int taskIndex) throws SQLException
     {
         this.connection = connector.connect(true);
         this.copySql = connection.buildCopySql(loadTable, insertSchema);

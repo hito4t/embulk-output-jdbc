@@ -31,7 +31,7 @@ public class DirectBatchInsert implements BatchInsert
 
     private final Logger logger = Exec.getLogger(DirectBatchInsert.class);
 
-    private List<String> ociKey;
+    private List<Object> ociKey;
     private final String database;
     private final String user;
     private final String password;
@@ -61,7 +61,7 @@ public class DirectBatchInsert implements BatchInsert
     }
 
     @Override
-    public void prepare(String loadTable, JdbcSchema insertSchema) throws SQLException
+    public void prepare(String loadTable, JdbcSchema insertSchema, int taskIndex) throws SQLException
     {
 
         /*
@@ -154,8 +154,10 @@ public class DirectBatchInsert implements BatchInsert
         }
 
         TableDefinition tableDefinition = new TableDefinition(schema, loadTable, columns);
-        ociKey = Arrays.asList(database, user, loadTable);
+        ociKey = Arrays.asList((Object)database, user, loadTable, taskIndex);
         ociManager.open(ociKey, database, user, password, tableDefinition);
+
+        System.out.println("batchSize=" + batchSize + ",rowSize=" + rowSize + ",rowCount=" + batchSize / rowSize);
 
         buffer = new RowBuffer(tableDefinition, Math.max(batchSize / rowSize, 8));
     }
