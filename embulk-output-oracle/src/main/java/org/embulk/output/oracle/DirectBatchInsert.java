@@ -211,7 +211,6 @@ public class DirectBatchInsert implements BatchInsert
             }
         }
         */
-        buffer.load();
     }
 
     @Override

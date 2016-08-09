@@ -3,6 +3,7 @@ package org.embulk.output.oracle.oci;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.sql.SQLException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import jnr.ffi.LibraryLoader;
 import jnr.ffi.Pointer;
@@ -287,20 +288,20 @@ public class OCIWrapper
         return maxRowCount;
     }
 
-    private int rowCount;
+    //private int rowCount;
+    private AtomicInteger rowCount = new AtomicInteger(0);
 
-    public void addValue(int rowIndex, short colIndex, Pointer pointer, short size) throws SQLException {
-        check("OCIDirPathColArrayEntrySet", oci.OCIDirPathColArrayEntrySet(
-                dpcaHandle,
-                errHandle,
-                rowIndex,
-                colIndex,
-                pointer,
-                size,
-                OCI.OCI_DIRPATH_COL_COMPLETE));
-    }
+    public void addRow(Pointer pointer, short[] columnSizes) throws SQLException {
+        int n = rowCount.getAndIncrement();
+        if (n >= maxRowCount) {
+            synchronized (this) {
+                if (rowCount.get() >= maxRowCount) {
+                    loadRows(maxRowCount);
+                }
+                n = rowCount.getAndIncrement();
+            }
+        }
 
-    public synchronized void addRow(Pointer pointer, short[] columnSizes) throws SQLException {
         int position = 0;
         for (short col = 0; col < tableDefinition.getColumnCount(); col++) {
             short size = columnSizes[col];
@@ -308,7 +309,7 @@ public class OCIWrapper
             check("OCIDirPathColArrayEntrySet", oci.OCIDirPathColArrayEntrySet(
                     dpcaHandle,
                     errHandle,
-                    rowCount,
+                    n,
                     col,
                     new BoundedMemoryIO(pointer, position, size),
                     size,
@@ -316,11 +317,13 @@ public class OCIWrapper
 
             position += size;
         }
+        /*
         rowCount++;
 
         if (rowCount >= maxRowCount) {
             loadRows();
         }
+        */
     }
 
 /*
@@ -360,12 +363,16 @@ public class OCIWrapper
         }
     }
 */
-    private void loadRows() throws SQLException
+    private synchronized void loadRows(int n) throws SQLException
     {
-        logger.info(String.format("Loading %,d rows", rowCount));
+        if (n == 0) {
+            return;
+        }
+
+        logger.info(String.format("Loading %,d rows", n));
         long startTime = System.currentTimeMillis();
 
-        for (int offset = 0; offset < rowCount;) {
+        for (int offset = 0; offset < n;) {
             check("OCIDirPathStreamReset", oci.OCIDirPathStreamReset(
                     dpstrHandle,
                     errHandle));
@@ -375,7 +382,7 @@ public class OCIWrapper
                     dpHandle,
                     dpstrHandle,
                     errHandle,
-                    rowCount,
+                    n,
                     offset);
             if (result != OCI.OCI_SUCCESS && result != OCI.OCI_CONTINUE) {
                 check("OCIDirPathColArrayToStream", result);
@@ -387,7 +394,7 @@ public class OCIWrapper
                     errHandle));
 
             if (result == OCI.OCI_SUCCESS) {
-                offset = rowCount;
+                offset = n;
             } else {
                 Pointer loadedRowCount = createPointer(0);
                 check("OCIAttrGet(OCI_ATTR_ROW_COUNT)", oci.OCIAttrGet(
@@ -402,16 +409,14 @@ public class OCIWrapper
         }
 
         double seconds = (System.currentTimeMillis() - startTime) / 1000.0;
-        totalRows += rowCount;
+        totalRows += n;
         logger.info(String.format("> %.2f seconds (loaded %,d rows in total)", seconds, totalRows));
-        rowCount = 0;
+        rowCount.set(0);
     }
 
     public synchronized void commit() throws SQLException
     {
-        if (rowCount > 0) {
-            loadRows();
-        }
+        loadRows(rowCount.get());
 
         committedOrRollbacked = true;
         logger.info("OCI : start to commit.");

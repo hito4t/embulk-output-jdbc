@@ -137,36 +137,4 @@ public class RowBuffer
         return currentColumn;
     }
 
-    public int getRowCount()
-    {
-        return currentRow;
-    }
-
-    public boolean isFull()
-    {
-        return currentRow >= rowCount;
-    }
-
-    public void load() throws SQLException {
-        /*
-        if (currentRow > 0) {
-            logger.info(String.format("Loading %,d rows", currentRow));
-
-            long startTime = System.currentTimeMillis();
-
-            synchronized (oci) {
-                oci.loadBuffer(this);
-            }
-
-            double seconds = (System.currentTimeMillis() - startTime) / 1000.0;
-            totalRows += currentRow;
-            logger.info(String.format("> %.2f seconds (loaded %,d rows in total)", seconds, totalRows));
-
-            currentRow = 0;
-            currentColumn = 0;
-            buffer.clear();
-        }
-        */
-    }
-
 }
