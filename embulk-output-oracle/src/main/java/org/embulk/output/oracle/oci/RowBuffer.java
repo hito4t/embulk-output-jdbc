@@ -2,6 +2,7 @@ package org.embulk.output.oracle.oci;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.sql.SQLException;
 
@@ -18,7 +19,8 @@ public class RowBuffer
     private int currentRow = 0;
     private int currentColumn = 0;
 
-    private final short[] sizes;
+    private final ByteBuffer sizes;
+    private final ByteBuffer defaultSizes;
     private final ByteBuffer buffer;
     private final ByteBuffer defaultBuffer;
 
@@ -35,17 +37,19 @@ public class RowBuffer
         // should be direct because used by native library
         buffer = ByteBuffer.allocateDirect(rowSize * rowCount).order(Runtime.getSystemRuntime().byteOrder());
         // position is not updated
-        defaultBuffer = buffer.duplicate();
+        defaultBuffer = buffer.duplicate().order(Runtime.getSystemRuntime().byteOrder());
 
-        sizes = new short[table.getColumnCount() * rowCount];
+        ByteOrder o = Runtime.getSystemRuntime().byteOrder();
+        sizes = ByteBuffer.allocateDirect(table.getColumnCount() * rowCount * 2).order(Runtime.getSystemRuntime().byteOrder());
+        defaultSizes = sizes.duplicate().order(Runtime.getSystemRuntime().byteOrder());
     }
 
     public ByteBuffer getBuffer() {
         return defaultBuffer;
     }
 
-    public short[] getSizes() {
-        return sizes;
+    public ByteBuffer getSizes() {
+        return defaultSizes;
     }
 
     public void addValue(int value)
@@ -90,7 +94,7 @@ public class RowBuffer
 
     private void next(short size)
     {
-        sizes[currentRow * table.getColumnCount() + currentColumn] = size;
+        sizes.putShort(size);
 
         currentColumn++;
         if (currentColumn == table.getColumnCount()) {
@@ -119,6 +123,7 @@ public class RowBuffer
         currentRow = 0;
         currentColumn = 0;
         buffer.clear();
+        sizes.clear();
     }
 
 }

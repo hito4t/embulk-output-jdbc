@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 public class OCIWrapper
 {
     private static OCI oci;
+    private static OCI2 oci2;
 
     private final Logger logger = Exec.getLogger(getClass());
 
@@ -44,6 +45,9 @@ public class OCIWrapper
         synchronized (OCIWrapper.class) {
             if (oci == null) {
                 oci = loadLibrary();
+            }
+            if (oci2 == null) {
+                oci2 = LibraryLoader.create(OCI2.class).failImmediately().load("embulk-output-oracle-oci");
             }
         }
     }
@@ -278,20 +282,46 @@ public class OCIWrapper
                 OCI.OCI_ATTR_NUM_ROWS,
                 errHandle));
         maxRowCount = maxRowCountPointer.getInt(0);
+
+        System.out.println("maxRowCount=" + maxRowCount);
     }
+
+    public int getMaxRowCount() {
+        return maxRowCount;
+    }
+
+    private long loadTime;
+    private long convertTime;
+    private long setTime;
 
     public void loadBuffer(RowBuffer rowBuffer) throws SQLException
     {
         Pointer pointer = new ByteBufferMemoryIO(Runtime.getSystemRuntime(), rowBuffer.getBuffer());
-        short[] sizes = rowBuffer.getSizes();
+        Pointer sizes = new ByteBufferMemoryIO(Runtime.getSystemRuntime(), rowBuffer.getSizes());
 
+
+        long t = System.currentTimeMillis();
+        check("OCIDirPathColArrayEntriesSet", oci2.embulk_output_oracle_OCIDirPathColArrayEntriesSet(
+                dpcaHandle,
+                errHandle,
+                (short)tableDefinition.getColumnCount(),
+                rowBuffer.getRowCount(),
+                pointer,
+                sizes));
+        setTime += System.currentTimeMillis() - t;
+
+
+        loadRows(rowBuffer.getRowCount());
+
+        /*
         int i = 0;
         int position = 0;
         int rowCount = 0;
         for (int row = 0; row < rowBuffer.getRowCount(); row++) {
             for (short col = 0; col < tableDefinition.getColumnCount(); col++) {
-                short size = sizes[i++];
+                short size = sizes.getShort(i++ * 2);
 
+                long t = System.currentTimeMillis();
                 check("OCIDirPathColArrayEntrySet", oci.OCIDirPathColArrayEntrySet(
                         dpcaHandle,
                         errHandle,
@@ -300,6 +330,7 @@ public class OCIWrapper
                         new BoundedMemoryIO(pointer, position, size),
                         size,
                         OCI.OCI_DIRPATH_COL_COMPLETE));
+                setTime += System.currentTimeMillis() - t;
 
                 position += size;
             }
@@ -314,6 +345,7 @@ public class OCIWrapper
         if (rowCount > 0) {
             loadRows(rowCount);
         }
+        */
     }
 
     private void loadRows(int rowCount) throws SQLException
@@ -323,6 +355,7 @@ public class OCIWrapper
                     dpstrHandle,
                     errHandle));
 
+            long t1 = System.currentTimeMillis();
             short result = oci.OCIDirPathColArrayToStream(
                     dpcaHandle,
                     dpHandle,
@@ -330,14 +363,17 @@ public class OCIWrapper
                     errHandle,
                     rowCount,
                     offset);
+            convertTime += System.currentTimeMillis() - t1;
             if (result != OCI.OCI_SUCCESS && result != OCI.OCI_CONTINUE) {
                 check("OCIDirPathColArrayToStream", result);
             }
 
+            long t2 = System.currentTimeMillis();
             check("OCIDirPathLoadStream", oci.OCIDirPathLoadStream(
                     dpHandle,
                     dpstrHandle,
                     errHandle));
+            loadTime += System.currentTimeMillis() - t2;
 
             if (result == OCI.OCI_SUCCESS) {
                 offset = rowCount;
@@ -361,6 +397,9 @@ public class OCIWrapper
         logger.info("OCI : start to commit.");
 
         try {
+            logger.info(String.format("set: %,d, convert: %,d, load: %,d", setTime, convertTime, loadTime));
+
+
             check("OCIDirPathFinish", oci.OCIDirPathFinish(dpHandle, errHandle));
         } finally {
             check("OCILogoff", oci.OCILogoff(svcHandle, errHandle));
