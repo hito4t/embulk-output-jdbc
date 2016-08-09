@@ -7,23 +7,31 @@ import java.sql.SQLException;
 
 import jnr.ffi.Runtime;
 
+import org.embulk.output.oracle.DirectBatchInsert;
 import org.embulk.output.oracle.oci.ColumnDefinition;
 import org.embulk.output.oracle.oci.TableDefinition;
+import org.embulk.spi.Exec;
+import org.slf4j.Logger;
 
 public class RowBuffer
 {
+    private final Logger logger = Exec.getLogger(RowBuffer.class);
+
+    private final OCIWrapper oci;
     private final TableDefinition table;
     private final int rowCount;
 
     private int currentRow = 0;
     private int currentColumn = 0;
+    private long totalRows = 0;
 
     private final short[] sizes;
     private final ByteBuffer buffer;
     private final ByteBuffer defaultBuffer;
 
-    public RowBuffer(TableDefinition table, int rowCount)
+    public RowBuffer(OCIWrapper oci, TableDefinition table, int rowCount)
     {
+        this.oci = oci;
         this.table = table;
         this.rowCount = rowCount;
 
@@ -48,7 +56,7 @@ public class RowBuffer
         return sizes;
     }
 
-    public void addValue(int value)
+    public void addValue(int value) throws SQLException
     {
         if (isFull()) {
             throw new IllegalStateException();
@@ -88,7 +96,7 @@ public class RowBuffer
         addValue(value.toPlainString());
     }
 
-    private void next(short size)
+    private void next(short size) throws SQLException
     {
         sizes[currentRow * table.getColumnCount() + currentColumn] = size;
 
@@ -96,6 +104,7 @@ public class RowBuffer
         if (currentColumn == table.getColumnCount()) {
             currentColumn = 0;
             currentRow++;
+            load();
         }
     }
 
@@ -112,6 +121,26 @@ public class RowBuffer
     public boolean isFull()
     {
         return currentRow >= rowCount;
+    }
+
+    public void load() throws SQLException {
+        if (currentRow > 0) {
+            logger.info(String.format("Loading %,d rows", currentRow));
+
+            long startTime = System.currentTimeMillis();
+
+            synchronized (oci) {
+                oci.loadBuffer(this);
+            }
+
+            double seconds = (System.currentTimeMillis() - startTime) / 1000.0;
+            totalRows += currentRow;
+            logger.info(String.format("> %.2f seconds (loaded %,d rows in total)", seconds, totalRows));
+
+            currentRow = 0;
+            currentColumn = 0;
+            buffer.clear();
+        }
     }
 
     public void clear()

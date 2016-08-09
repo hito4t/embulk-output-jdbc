@@ -155,9 +155,9 @@ public class DirectBatchInsert implements BatchInsert
 
         TableDefinition tableDefinition = new TableDefinition(schema, loadTable, columns);
         ociKey = Arrays.asList(database, user, loadTable);
-        ociManager.open(ociKey, database, user, password, tableDefinition);
+        OCIWrapper oci = ociManager.open(ociKey, database, user, password, tableDefinition);
 
-        buffer = new RowBuffer(tableDefinition, Math.max(batchSize / rowSize, 8));
+        buffer = new RowBuffer(oci, tableDefinition, Math.max(batchSize / rowSize, 8));
     }
 
     @Override
@@ -170,9 +170,11 @@ public class DirectBatchInsert implements BatchInsert
     public void add() throws IOException, SQLException
     {
         batchWeight += rowSize;
+        /*
         if (buffer.isFull()) {
             flush();
         }
+        */
     }
 
     @Override
@@ -187,6 +189,7 @@ public class DirectBatchInsert implements BatchInsert
     @Override
     public void flush() throws IOException, SQLException
     {
+        /*
         if (buffer.getRowCount() > 0) {
             try {
                 logger.info(String.format("Loading %,d rows", buffer.getRowCount()));
@@ -207,6 +210,8 @@ public class DirectBatchInsert implements BatchInsert
                 batchWeight = 0;
             }
         }
+        */
+        buffer.load();
     }
 
     @Override

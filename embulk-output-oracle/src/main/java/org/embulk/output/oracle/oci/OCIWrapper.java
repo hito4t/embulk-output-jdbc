@@ -280,6 +280,23 @@ public class OCIWrapper
         maxRowCount = maxRowCountPointer.getInt(0);
     }
 
+    public int getMaxRowCount() {
+        return maxRowCount;
+    }
+
+    public void addValue(int rowIndex, short colIndex, Pointer pointer, short size) throws SQLException {
+        check("OCIDirPathColArrayEntrySet", oci.OCIDirPathColArrayEntrySet(
+                dpcaHandle,
+                errHandle,
+                rowIndex,
+                colIndex,
+                pointer,
+                size,
+                OCI.OCI_DIRPATH_COL_COMPLETE));
+    }
+
+
+
     public void loadBuffer(RowBuffer rowBuffer) throws SQLException
     {
         Pointer pointer = new ByteBufferMemoryIO(Runtime.getSystemRuntime(), rowBuffer.getBuffer());
