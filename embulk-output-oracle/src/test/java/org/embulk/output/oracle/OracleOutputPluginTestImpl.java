@@ -222,9 +222,9 @@ public class OracleOutputPluginTestImpl extends AbstractJdbcOutputPluginTest
         run("/oracle/yml/test-insert-direct-oci-method-large.yml");
 
         List<List<Object>> rows = select(table);
-        assertEquals(999, rows.size());
+        assertEquals(9999, rows.size());
         for (int i = 0; i < rows.size(); i++) {
-            assertEquals(String.format("A%03d", i + 1), rows.get(i).get(0));
+            assertEquals(String.format("%04d", i + 1), rows.get(i).get(0));
         }
     }
 

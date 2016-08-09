@@ -64,9 +64,11 @@ public class RowBuffer
 
     public void addValue(int value) throws SQLException
     {
+        /*
         if (isFull()) {
             throw new IllegalStateException();
         }
+        */
 
         buffer.putInt(value);
 
@@ -75,9 +77,11 @@ public class RowBuffer
 
     public void addValue(String value) throws SQLException
     {
+        /*
         if (isFull()) {
             throw new IllegalStateException();
         }
+        */
 
         ColumnDefinition column = table.getColumn(currentColumn);
         Charset charset = column.getCharset().getJavaCharset();
@@ -110,7 +114,6 @@ public class RowBuffer
         currentColumn++;
         if (currentColumn == table.getColumnCount()) {
             currentColumn = 0;
-            currentRow++;
 
             /*
             if (currentRow >= oci.getMaxRowCount()) {
@@ -120,6 +123,11 @@ public class RowBuffer
 
             oci.addRow(new ByteBufferMemoryIO(Runtime.getSystemRuntime(), currentRowBuffer), columnSizes);
 
+            currentRow++;
+            if (currentRow == oci.getMaxRowCount()) {
+                currentRow = 0;
+                buffer.rewind();
+            }
             currentRowBuffer = buffer.duplicate();
         }
     }
