@@ -20,7 +20,7 @@ public class OCIManager
     private Map<Object, OCIWrapperAndCounter> ociAndCounters = new HashMap<Object, OCIWrapperAndCounter>();
 
 
-    public OCIWrapper open(Object key, String dbName, String userName, String password, TableDefinition tableDefinition, int maxRowCount)
+    public OCIWrapper open(Object key, String dbName, String userName, String password, TableDefinition tableDefinition, int bufferSize)
             throws SQLException
     {
         synchronized(ociAndCounters) {
@@ -31,8 +31,8 @@ public class OCIManager
                 logger.info(String.format("OCI : open for %s.", key));
                 ociAndCounter = new OCIWrapperAndCounter();
                 ociAndCounter.oci = new OCIWrapper();
-                ociAndCounter.oci.open(dbName, userName, password, maxRowCount);
-                ociAndCounter.oci.prepareLoad(tableDefinition);
+                ociAndCounter.oci.open(dbName, userName, password);
+                ociAndCounter.oci.prepareLoad(tableDefinition, bufferSize);
                 ociAndCounters.put(key, ociAndCounter);
             }
             ociAndCounter.counter++;

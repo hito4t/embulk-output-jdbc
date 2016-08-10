@@ -36,8 +36,6 @@ public class DirectBatchInsert implements BatchInsert
     private final OracleCharset nationalCharset;
     private final int batchSize;
     private RowBuffer buffer;
-    private int rowSize;
-    private int batchWeight;
     private boolean closed;
 
     private DateFormat[] formats;
@@ -143,14 +141,9 @@ public class DirectBatchInsert implements BatchInsert
 
         }
 
-        rowSize = 0;
-        for (ColumnDefinition column : columns) {
-            rowSize += column.getDataSize();
-        }
-
         TableDefinition tableDefinition = new TableDefinition(schema, loadTable, columns);
         ociKey = Arrays.asList(database, user, loadTable);
-        OCIWrapper oci = ociManager.open(ociKey, database, user, password, tableDefinition, batchSize / rowSize);
+        OCIWrapper oci = ociManager.open(ociKey, database, user, password, tableDefinition, batchSize);
 
         buffer = new RowBuffer(oci, tableDefinition);
     }
@@ -158,13 +151,13 @@ public class DirectBatchInsert implements BatchInsert
     @Override
     public int getBatchWeight()
     {
-        return batchWeight;
+        // Automatically flushed in RowBuffer
+        return 0;
     }
 
     @Override
     public void add() throws IOException, SQLException
     {
-        batchWeight += rowSize;
     }
 
     @Override

@@ -73,7 +73,7 @@ public class OCIWrapper
         throw new UnsatisfiedLinkError("Cannot find library: " + libraryNames);
     }
 
-    public void open(String dbName, String userName, String password, int maxRowCount) throws SQLException
+    public void open(String dbName, String userName, String password) throws SQLException
     {
         Pointer envHandlePointer = createPointerPointer();
         // OCI_THREADED is not needed because synchronized in Java side.
@@ -129,27 +129,28 @@ public class OCIWrapper
                 0,
                 null));
         dpHandle = dpHandlePointer.getPointer(0);
+    }
 
-        check("OCIAttrSet(OCI_ATTR_NUM_ROWS)", oci.OCIAttrSet(
-                dpHandle,
-                OCI.OCI_HTYPE_DIRPATH_CTX,
-                createPointer(maxRowCount),
-                4,
-                OCI.OCI_ATTR_NUM_ROWS,
-                errHandle));
+    public void prepareLoad(TableDefinition tableDefinition, int bufferSize) throws SQLException
+    {
+        this.tableDefinition = tableDefinition;
 
         check("OCIAttrSet(OCI_ATTR_BUF_SIZE)", oci.OCIAttrSet(
                 dpHandle,
                 OCI.OCI_HTYPE_DIRPATH_CTX,
-                createPointer(100000000),
+                createPointer(bufferSize),
                 4,
                 OCI.OCI_ATTR_BUF_SIZE,
                 errHandle));
-    }
 
-    public void prepareLoad(TableDefinition tableDefinition) throws SQLException
-    {
-        this.tableDefinition = tableDefinition;
+        int numRows = Math.max(bufferSize / tableDefinition.getRowSize(), 16);
+        check("OCIAttrSet(OCI_ATTR_NUM_ROWS)", oci.OCIAttrSet(
+                dpHandle,
+                OCI.OCI_HTYPE_DIRPATH_CTX,
+                createPointer(numRows),
+                4,
+                OCI.OCI_ATTR_NUM_ROWS,
+                errHandle));
 
         if (tableDefinition.getSchemaName() != null) {
             Pointer schemaName = createPointer(tableDefinition.getSchemaName());
@@ -290,7 +291,6 @@ public class OCIWrapper
         dpstrHandle = dpstrHandlePointer.getPointer(0);
 
         Pointer maxRowCountPointer = createPointer(0);
-
         check("OCIAttrGet(OCI_ATTR_NUM_ROWS)", oci.OCIAttrGet(
                 dpcaHandle,
                 OCI.OCI_HTYPE_DIRPATH_COLUMN_ARRAY,
@@ -299,7 +299,6 @@ public class OCIWrapper
                 OCI.OCI_ATTR_NUM_ROWS,
                 errHandle));
         maxRowCount = maxRowCountPointer.getInt(0);
-
         logger.info(String.format("DirectPathColumnArray.numRows = %,d", maxRowCount));
     }
 
