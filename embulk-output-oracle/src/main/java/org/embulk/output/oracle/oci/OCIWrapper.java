@@ -3,12 +3,10 @@ package org.embulk.output.oracle.oci;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.sql.SQLException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import jnr.ffi.LibraryLoader;
 import jnr.ffi.Pointer;
 import jnr.ffi.Runtime;
-import jnr.ffi.provider.BoundedMemoryIO;
 import jnr.ffi.provider.jffi.ArrayMemoryIO;
 import jnr.ffi.provider.jffi.ByteBufferMemoryIO;
 
@@ -77,6 +75,7 @@ public class OCIWrapper
     public void open(String dbName, String userName, String password) throws SQLException
     {
         Pointer envHandlePointer = createPointerPointer();
+        // OCI_THREADED is not needed because synchronized in Java side.
         check("OCIEnvCreate", oci.OCIEnvCreate(
                 envHandlePointer,
                 /*OCI.OCI_THREADED |*/ OCI.OCI_OBJECT,
@@ -136,6 +135,14 @@ public class OCIWrapper
                 createPointer(100000),
                 4,
                 OCI.OCI_ATTR_NUM_ROWS,
+                errHandle));
+
+        check("OCIAttrSet(OCI_ATTR_NUM_ROWS)", oci.OCIAttrSet(
+                dpHandle,
+                OCI.OCI_HTYPE_DIRPATH_CTX,
+                createPointer(100000000),
+                4,
+                77,
                 errHandle));
     }
 
@@ -292,24 +299,18 @@ public class OCIWrapper
                 errHandle));
         maxRowCount = maxRowCountPointer.getInt(0);
 
-        System.out.println("maxRowCount=" + maxRowCount);
+        System.out.println("#2 maxRowCount=" + maxRowCount);
     }
 
     public int getMaxRowCount() {
         return maxRowCount;
     }
 
-    private long loadTime;
-    private long convertTime;
-    private long setTime;
-
     public void loadBuffer(RowBuffer rowBuffer) throws SQLException
     {
         Pointer pointer = new ByteBufferMemoryIO(Runtime.getSystemRuntime(), rowBuffer.getBuffer());
         Pointer sizes = new ByteBufferMemoryIO(Runtime.getSystemRuntime(), rowBuffer.getSizes());
 
-
-        long t = System.currentTimeMillis();
         check("OCIDirPathColArrayEntriesSet", oci2.embulk_output_oracle_OCIDirPathColArrayEntriesSet(
                 dpcaHandle,
                 errHandle,
@@ -317,71 +318,17 @@ public class OCIWrapper
                 rowBuffer.getRowCount(),
                 pointer,
                 sizes));
-        setTime += System.currentTimeMillis() - t;
-
 
         loadRows(rowBuffer.getRowCount());
-
-        /*
-        int i = 0;
-        int position = 0;
-        int rowCount = 0;
-        for (int row = 0; row < rowBuffer.getRowCount(); row++) {
-            for (short col = 0; col < tableDefinition.getColumnCount(); col++) {
-                short size = sizes.getShort(i++ * 2);
-
-                long t = System.currentTimeMillis();
-                check("OCIDirPathColArrayEntrySet", oci.OCIDirPathColArrayEntrySet(
-                        dpcaHandle,
-                        errHandle,
-                        rowCount,
-                        col,
-                        new BoundedMemoryIO(pointer, position, size),
-                        size,
-                        OCI.OCI_DIRPATH_COL_COMPLETE));
-                setTime += System.currentTimeMillis() - t;
-
-                position += size;
-            }
-
-            rowCount++;
-            if (rowCount == maxRowCount) {
-                loadRows(rowCount);
-                rowCount = 0;
-            }
-        }
-
-        if (rowCount > 0) {
-            loadRows(rowCount);
-        }
-        */
-    }
-
-    private AtomicBoolean loading = new AtomicBoolean();
-
-    private void waitLoaded() {
-        /*
-        while (loading.get()) {
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                // TODO 自動生成された catch ブロック
-                e.printStackTrace();
-            }
-        }
-        */
     }
 
     private void loadRows(int rowCount) throws SQLException
     {
-        waitLoaded();
-
         for (int offset = 0; offset < rowCount;) {
             check("OCIDirPathStreamReset", oci.OCIDirPathStreamReset(
                     dpstrHandle,
                     errHandle));
 
-            long t1 = System.currentTimeMillis();
             short result = oci.OCIDirPathColArrayToStream(
                     dpcaHandle,
                     dpHandle,
@@ -389,41 +336,14 @@ public class OCIWrapper
                     errHandle,
                     rowCount,
                     offset);
-            convertTime += System.currentTimeMillis() - t1;
             if (result != OCI.OCI_SUCCESS && result != OCI.OCI_CONTINUE) {
                 check("OCIDirPathColArrayToStream", result);
             }
 
-            /*
-            if (result == OCI.OCI_SUCCESS) {
-                loading.set(true);
-                Thread thread = new Thread() {
-                    @Override
-                    public void run() {
-                        try {
-                            long t2 = System.currentTimeMillis();
-                            check("OCIDirPathLoadStream", oci.OCIDirPathLoadStream(
-                                    dpHandle,
-                                    dpstrHandle,
-                                    errHandle));
-                            loadTime += System.currentTimeMillis() - t2;
-                            loading.set(false);
-
-                        } catch (SQLException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                };
-                thread.start();
-
-            } else {*/
-                long t2 = System.currentTimeMillis();
-                check("OCIDirPathLoadStream", oci.OCIDirPathLoadStream(
-                        dpHandle,
-                        dpstrHandle,
-                        errHandle));
-                loadTime += System.currentTimeMillis() - t2;
-            //}
+            check("OCIDirPathLoadStream", oci.OCIDirPathLoadStream(
+                    dpHandle,
+                    dpstrHandle,
+                    errHandle));
 
             if (result == OCI.OCI_SUCCESS) {
                 offset = rowCount;
@@ -443,15 +363,10 @@ public class OCIWrapper
 
     public void commit() throws SQLException
     {
-        waitLoaded();
-
         committedOrRollbacked = true;
         logger.info("OCI : start to commit.");
 
         try {
-            logger.info(String.format("set: %,d, convert: %,d, load: %,d", setTime, convertTime, loadTime));
-
-
             check("OCIDirPathFinish", oci.OCIDirPathFinish(dpHandle, errHandle));
         } finally {
             check("OCILogoff", oci.OCILogoff(svcHandle, errHandle));
@@ -461,7 +376,7 @@ public class OCIWrapper
 
     public void rollback() throws SQLException
     {
-        waitLoaded();
+        //loadThread.dispose();
 
         committedOrRollbacked = true;
         logger.info("OCI : start to rollback.");

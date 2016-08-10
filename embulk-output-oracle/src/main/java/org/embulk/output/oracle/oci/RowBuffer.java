@@ -34,14 +34,14 @@ public class RowBuffer
             rowSize += table.getColumn(i).getDataSize();
         }
 
+        ByteOrder byteOrder = Runtime.getSystemRuntime().byteOrder();
         // should be direct because used by native library
-        buffer = ByteBuffer.allocateDirect(rowSize * rowCount).order(Runtime.getSystemRuntime().byteOrder());
+        buffer = ByteBuffer.allocateDirect(rowSize * rowCount).order(byteOrder);
         // position is not updated
-        defaultBuffer = buffer.duplicate().order(Runtime.getSystemRuntime().byteOrder());
+        defaultBuffer = buffer.duplicate().order(byteOrder);
 
-        ByteOrder o = Runtime.getSystemRuntime().byteOrder();
-        sizes = ByteBuffer.allocateDirect(table.getColumnCount() * rowCount * 2).order(Runtime.getSystemRuntime().byteOrder());
-        defaultSizes = sizes.duplicate().order(Runtime.getSystemRuntime().byteOrder());
+        sizes = ByteBuffer.allocateDirect(table.getColumnCount() * rowCount * 2).order(byteOrder);
+        defaultSizes = sizes.duplicate().order(byteOrder);
     }
 
     public ByteBuffer getBuffer() {
