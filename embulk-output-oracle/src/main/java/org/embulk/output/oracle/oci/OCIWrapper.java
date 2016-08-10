@@ -31,6 +31,7 @@ public class OCIWrapper
 
     private TableDefinition tableDefinition;
     private int maxRowCount;
+    private long totalRows;
 
     private boolean errorOccured;
     private boolean committedOrRollbacked;
@@ -308,6 +309,10 @@ public class OCIWrapper
 
     public void loadBuffer(RowBuffer rowBuffer) throws SQLException
     {
+        logger.info(String.format("Loading %,d rows", rowBuffer.getRowCount()));
+
+        long startTime = System.currentTimeMillis();
+
         Pointer pointer = new ByteBufferMemoryIO(Runtime.getSystemRuntime(), rowBuffer.getBuffer());
         Pointer sizes = new ByteBufferMemoryIO(Runtime.getSystemRuntime(), rowBuffer.getSizes());
 
@@ -320,6 +325,10 @@ public class OCIWrapper
                 sizes));
 
         loadRows(rowBuffer.getRowCount());
+
+        totalRows += rowBuffer.getRowCount();
+        double seconds = (System.currentTimeMillis() - startTime) / 1000.0;
+        logger.info(String.format("> %.2f seconds (loaded %,d rows in total)", seconds, totalRows));
     }
 
     private void loadRows(int rowCount) throws SQLException
