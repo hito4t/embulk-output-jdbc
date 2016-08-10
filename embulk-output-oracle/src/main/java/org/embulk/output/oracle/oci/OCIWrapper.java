@@ -1,10 +1,15 @@
 package org.embulk.output.oracle.oci;
 
+import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.sql.SQLException;
 
 import jnr.ffi.LibraryLoader;
+import jnr.ffi.Platform;
 import jnr.ffi.Pointer;
 import jnr.ffi.Runtime;
 import jnr.ffi.provider.jffi.ArrayMemoryIO;
@@ -16,8 +21,10 @@ import org.slf4j.Logger;
 
 public class OCIWrapper
 {
+    private static final String PLUGIN_NAME = "embulk-output-oracle";
+
     private static OCI oci;
-    private static OCI2 oci2;
+    private static BulkOCI bulkOci;
 
     private final Logger logger = Exec.getLogger(getClass());
 
@@ -45,17 +52,17 @@ public class OCIWrapper
 
         synchronized (OCIWrapper.class) {
             if (oci == null) {
-                oci = loadLibrary();
+                oci = loadOCILibrary();
             }
-            if (oci2 == null) {
-                oci2 = LibraryLoader.create(OCI2.class).failImmediately().load("embulk-output-oracle-oci");
+            if (bulkOci == null) {
+                bulkOci = loadBulkOCILibrary(oci);
             }
         }
     }
 
-    private OCI loadLibrary()
+    private OCI loadOCILibrary()
     {
-        logger.info("Loading OCI library.");
+        logger.info("OCI : Loading OCI library.");
 
         // "oci" for Windows, "clntsh" for Linux
         StringBuilder libraryNames = new StringBuilder();
@@ -72,6 +79,50 @@ public class OCIWrapper
         }
 
         throw new UnsatisfiedLinkError("Cannot find library: " + libraryNames);
+    }
+
+    private BulkOCI loadBulkOCILibrary(OCI oci)
+    {
+        String libraryName = "embulk-output-oracle-oci";
+        logger.info("OCI : Loading " + libraryName + " library.");
+
+        Platform platform = Platform.getNativePlatform();
+
+        File folder = getPluginRoot();
+        folder = new File(new File(new File(new File(folder ,"lib"), "embulk"), "native"), platform.getName());
+
+        File file = new File(folder, System.mapLibraryName(libraryName));
+        if (!file.exists()) {
+            logger.info("OCI : Library '" + file.getAbsolutePath() + "' doesn't exist, so Java implementation is used instead.");
+            return new PrimitiveBulkOCI(oci);
+        }
+
+        logger.info("OCI : Library '" + file.getAbsolutePath() + "' is found.");
+        return LibraryLoader.create(BulkOCI.class).search(folder.getAbsolutePath()).failImmediately().load(libraryName);
+    }
+
+    private File getPluginRoot()
+    {
+        try {
+            URL url = getClass().getResource("/" + getClass().getName().replace('.', '/') + ".class");
+            if (url.toString().startsWith("jar:")) {
+                url = new URL(url.toString().replaceAll("^jar:", "").replaceAll("![^!]*$", ""));
+            }
+
+            File folder = new File(url.toURI()).getParentFile();
+            for (;; folder = folder.getParentFile()) {
+                if (folder == null) {
+                    String message = String.format("OCI : %s folder not found.", PLUGIN_NAME);
+                    throw new RuntimeException(message);
+                }
+
+                if (folder.getName().startsWith(PLUGIN_NAME)) {
+                    return folder;
+                }
+            }
+        } catch (MalformedURLException | URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void open(String dbName, String userName, String password) throws SQLException
@@ -300,7 +351,7 @@ public class OCIWrapper
                 OCI.OCI_ATTR_NUM_ROWS,
                 errHandle));
         maxRowCount = maxRowCountPointer.getInt(0);
-        logger.info(String.format("DirectPathColumnArray.numRows = %,d", maxRowCount));
+        logger.info(String.format("OCI : DirectPathColumnArray.numRows = %,d", maxRowCount));
     }
 
     public int getMaxRowCount() {
@@ -312,7 +363,7 @@ public class OCIWrapper
         logger.info(String.format("Loading %,d rows", rowCount));
         long startTime = System.currentTimeMillis();
 
-        check("OCIDirPathColArrayEntriesSet", oci2.embulk_output_oracle_OCIDirPathColArrayEntriesSet(
+        check("OCIDirPathColArrayEntriesSet", bulkOci.embulk_output_oracle_OCIDirPathColArrayEntriesSet(
                 dpcaHandle,
                 errHandle,
                 (short)tableDefinition.getColumnCount(),
