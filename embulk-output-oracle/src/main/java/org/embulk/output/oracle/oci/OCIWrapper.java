@@ -130,6 +130,24 @@ public class OCIWrapper
                 0,
                 null));
         dpHandle = dpHandlePointer.getPointer(0);
+
+        Pointer parallelFlag = createPointer((byte)1);
+        check("OCIAttrSet(OCI_ATTR_DIRPATH_PARALLEL)", oci.OCIAttrSet(
+                dpHandle,
+                OCI.OCI_HTYPE_DIRPATH_CTX,
+                parallelFlag,
+                (int)parallelFlag.size()
+                , OCI.OCI_ATTR_DIRPATH_PARALLEL,
+                errHandle));
+
+        Pointer index = createPointer(OCI.OCI_DIRPATH_INDEX_MAINT_SKIP_ALL);
+        check("OCIAttrSet(OCI_ATTR_DIRPATH_SKIPINDEX_METHOD)", oci.OCIAttrSet(
+                dpHandle,
+                OCI.OCI_HTYPE_DIRPATH_CTX,
+                index,
+                (int)index.size()
+                , OCI.OCI_ATTR_DIRPATH_SKIPINDEX_METHOD,
+                errHandle));
     }
 
     public void prepareLoad(TableDefinition tableDefinition, int bufferSize) throws SQLException
@@ -183,6 +201,7 @@ public class OCIWrapper
                 , OCI.OCI_ATTR_NAME,
                 errHandle));
 
+        /*
         Pointer noIndexErrors = createPointer((byte)1);
         check("OCIAttrSet(OCI_ATTR_DIRPATH_NO_INDEX_ERRORS)", oci.OCIAttrSet(
                 dpHandle,
@@ -191,6 +210,7 @@ public class OCIWrapper
                 (int)noIndexErrors.size(),
                 OCI.OCI_ATTR_DIRPATH_NO_INDEX_ERRORS,
                 errHandle));
+        */
 
         Pointer columnsPointer = createPointerPointer();
         check("OCIAttrGet(OCI_ATTR_LIST_COLUMNS)", oci.OCIAttrGet(
@@ -370,7 +390,9 @@ public class OCIWrapper
     public void commit() throws SQLException
     {
         committedOrRollbacked = true;
-        logger.info(String.format("OCI : OCIDirPathLoadStream : %,d rows x %,d times.", totalRows / loadCount, loadCount));
+        if (loadCount > 0) {
+            logger.info(String.format("OCI : OCIDirPathLoadStream : %,d rows x %,d times.", totalRows / loadCount, loadCount));
+        }
         logger.info("OCI : start to commit.");
 
         try {
