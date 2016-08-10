@@ -370,7 +370,9 @@ public class OCIWrapper
     public void commit() throws SQLException
     {
         committedOrRollbacked = true;
-        logger.info(String.format("OCI : OCIDirPathLoadStream : %,d rows x %,d times.", totalRows / loadCount, loadCount));
+        if (loadCount > 0) {
+            logger.info(String.format("OCI : OCIDirPathLoadStream : %,d rows x %,d times.", totalRows / loadCount, loadCount));
+        }
         logger.info("OCI : start to commit.");
 
         try {
