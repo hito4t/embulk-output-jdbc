@@ -46,14 +46,6 @@ public class RowBuffer
         defaultSizes = sizes.duplicate().order(byteOrder);
     }
 
-    public ByteBuffer getBuffer() {
-        return defaultBuffer;
-    }
-
-    public ByteBuffer getSizes() {
-        return defaultSizes;
-    }
-
     public void addValue(int value) throws SQLException
     {
         buffer.putInt(value);
@@ -106,16 +98,11 @@ public class RowBuffer
         return currentColumn;
     }
 
-    public int getRowCount()
-    {
-        return currentRow;
-    }
-
     public void flush() throws SQLException
     {
         if (currentRow > 0) {
             synchronized (oci) {
-                oci.loadBuffer(this);
+                oci.loadBuffer(defaultBuffer, defaultSizes, currentRow);
             }
 
             currentRow = 0;

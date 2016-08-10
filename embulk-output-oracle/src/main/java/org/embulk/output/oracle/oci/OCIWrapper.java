@@ -138,12 +138,12 @@ public class OCIWrapper
                 OCI.OCI_ATTR_NUM_ROWS,
                 errHandle));
 
-        check("OCIAttrSet(OCI_ATTR_NUM_ROWS)", oci.OCIAttrSet(
+        check("OCIAttrSet(OCI_ATTR_BUF_SIZE)", oci.OCIAttrSet(
                 dpHandle,
                 OCI.OCI_HTYPE_DIRPATH_CTX,
                 createPointer(100000000),
                 4,
-                77,
+                OCI.OCI_ATTR_BUF_SIZE,
                 errHandle));
     }
 
@@ -307,26 +307,22 @@ public class OCIWrapper
         return maxRowCount;
     }
 
-    public void loadBuffer(RowBuffer rowBuffer) throws SQLException
+    public void loadBuffer(ByteBuffer buffer, ByteBuffer sizes, int rowCount) throws SQLException
     {
-        logger.info(String.format("Loading %,d rows", rowBuffer.getRowCount()));
-
+        logger.info(String.format("Loading %,d rows", rowCount));
         long startTime = System.currentTimeMillis();
-
-        Pointer pointer = new ByteBufferMemoryIO(Runtime.getSystemRuntime(), rowBuffer.getBuffer());
-        Pointer sizes = new ByteBufferMemoryIO(Runtime.getSystemRuntime(), rowBuffer.getSizes());
 
         check("OCIDirPathColArrayEntriesSet", oci2.embulk_output_oracle_OCIDirPathColArrayEntriesSet(
                 dpcaHandle,
                 errHandle,
                 (short)tableDefinition.getColumnCount(),
-                rowBuffer.getRowCount(),
-                pointer,
-                sizes));
+                rowCount,
+                new ByteBufferMemoryIO(Runtime.getSystemRuntime(), buffer),
+                new ByteBufferMemoryIO(Runtime.getSystemRuntime(), sizes)));
 
-        loadRows(rowBuffer.getRowCount());
+        loadRows(rowCount);
 
-        totalRows += rowBuffer.getRowCount();
+        totalRows += rowCount;
         double seconds = (System.currentTimeMillis() - startTime) / 1000.0;
         logger.info(String.format("> %.2f seconds (loaded %,d rows in total)", seconds, totalRows));
     }
@@ -385,8 +381,6 @@ public class OCIWrapper
 
     public void rollback() throws SQLException
     {
-        //loadThread.dispose();
-
         committedOrRollbacked = true;
         logger.info("OCI : start to rollback.");
 
