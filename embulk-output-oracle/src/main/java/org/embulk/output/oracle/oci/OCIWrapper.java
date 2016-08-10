@@ -32,6 +32,7 @@ public class OCIWrapper
     private TableDefinition tableDefinition;
     private int maxRowCount;
     private long totalRows;
+    private int loadCount;
 
     private boolean errorOccured;
     private boolean committedOrRollbacked;
@@ -344,6 +345,7 @@ public class OCIWrapper
                 check("OCIDirPathColArrayToStream", result);
             }
 
+            loadCount++;
             check("OCIDirPathLoadStream", oci.OCIDirPathLoadStream(
                     dpHandle,
                     dpstrHandle,
@@ -368,6 +370,7 @@ public class OCIWrapper
     public void commit() throws SQLException
     {
         committedOrRollbacked = true;
+        logger.info(String.format("OCI : OCIDirPathLoadStream : %,d rows x %,d times.", totalRows / loadCount, loadCount));
         logger.info("OCI : start to commit.");
 
         try {
