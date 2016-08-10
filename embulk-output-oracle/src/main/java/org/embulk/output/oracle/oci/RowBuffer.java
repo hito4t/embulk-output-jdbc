@@ -31,14 +31,9 @@ public class RowBuffer
         this.table = table;
         rowCount = oci.getMaxRowCount();
 
-        int rowSize = 0;
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            rowSize += table.getColumn(i).getDataSize();
-        }
-
         ByteOrder byteOrder = Runtime.getSystemRuntime().byteOrder();
         // should be direct because used by native library
-        buffer = ByteBuffer.allocateDirect(rowSize * rowCount).order(byteOrder);
+        buffer = ByteBuffer.allocateDirect(table.getRowSize() * rowCount).order(byteOrder);
         // position is not updated
         defaultBuffer = buffer.duplicate().order(byteOrder);
 
