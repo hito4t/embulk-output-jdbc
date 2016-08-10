@@ -13,6 +13,7 @@ import org.embulk.output.oracle.oci.TableDefinition;
 
 public class RowBuffer
 {
+    private final OCIWrapper oci;
     private final TableDefinition table;
     private final int rowCount;
 
@@ -24,8 +25,9 @@ public class RowBuffer
     private final ByteBuffer buffer;
     private final ByteBuffer defaultBuffer;
 
-    public RowBuffer(TableDefinition table, int rowCount)
+    public RowBuffer(OCIWrapper oci, TableDefinition table, int rowCount)
     {
+        this.oci = oci;
         this.table = table;
         this.rowCount = rowCount;
 
@@ -52,12 +54,8 @@ public class RowBuffer
         return defaultSizes;
     }
 
-    public void addValue(int value)
+    public void addValue(int value) throws SQLException
     {
-        if (isFull()) {
-            throw new IllegalStateException();
-        }
-
         buffer.putInt(value);
 
         next((short)4);
@@ -65,10 +63,6 @@ public class RowBuffer
 
     public void addValue(String value) throws SQLException
     {
-        if (isFull()) {
-            throw new IllegalStateException();
-        }
-
         ColumnDefinition column = table.getColumn(currentColumn);
         Charset charset = column.getCharset().getJavaCharset();
 
@@ -92,7 +86,7 @@ public class RowBuffer
         addValue(value.toPlainString());
     }
 
-    private void next(short size)
+    private void next(short size) throws SQLException
     {
         sizes.putShort(size);
 
@@ -100,6 +94,10 @@ public class RowBuffer
         if (currentColumn == table.getColumnCount()) {
             currentColumn = 0;
             currentRow++;
+
+            if (currentRow >= rowCount) {
+                flush();
+            }
         }
     }
 
@@ -113,17 +111,18 @@ public class RowBuffer
         return currentRow;
     }
 
-    public boolean isFull()
+    public void flush() throws SQLException
     {
-        return currentRow >= rowCount;
-    }
+        if (currentRow > 0) {
+            synchronized (oci) {
+                oci.loadBuffer(this);
+            }
 
-    public void clear()
-    {
-        currentRow = 0;
-        currentColumn = 0;
-        buffer.clear();
-        sizes.clear();
+            currentRow = 0;
+            currentColumn = 0;
+            buffer.clear();
+            sizes.clear();
+        }
     }
 
 }
