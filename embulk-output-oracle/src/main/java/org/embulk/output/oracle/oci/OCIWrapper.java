@@ -72,7 +72,7 @@ public class OCIWrapper
         throw new UnsatisfiedLinkError("Cannot find library: " + libraryNames);
     }
 
-    public void open(String dbName, String userName, String password) throws SQLException
+    public void open(String dbName, String userName, String password, int maxRowCount) throws SQLException
     {
         Pointer envHandlePointer = createPointerPointer();
         // OCI_THREADED is not needed because synchronized in Java side.
@@ -132,7 +132,7 @@ public class OCIWrapper
         check("OCIAttrSet(OCI_ATTR_NUM_ROWS)", oci.OCIAttrSet(
                 dpHandle,
                 OCI.OCI_HTYPE_DIRPATH_CTX,
-                createPointer(100000),
+                createPointer(maxRowCount),
                 4,
                 OCI.OCI_ATTR_NUM_ROWS,
                 errHandle));
@@ -299,7 +299,7 @@ public class OCIWrapper
                 errHandle));
         maxRowCount = maxRowCountPointer.getInt(0);
 
-        System.out.println("#2 maxRowCount=" + maxRowCount);
+        logger.info(String.format("DirectPathColumnArray.numRows = %,d", maxRowCount));
     }
 
     public int getMaxRowCount() {

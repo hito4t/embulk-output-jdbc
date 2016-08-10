@@ -25,11 +25,11 @@ public class RowBuffer
     private final ByteBuffer buffer;
     private final ByteBuffer defaultBuffer;
 
-    public RowBuffer(OCIWrapper oci, TableDefinition table, int rowCount)
+    public RowBuffer(OCIWrapper oci, TableDefinition table)
     {
         this.oci = oci;
         this.table = table;
-        this.rowCount = rowCount;
+        rowCount = oci.getMaxRowCount();
 
         int rowSize = 0;
         for (int i = 0; i < table.getColumnCount(); i++) {

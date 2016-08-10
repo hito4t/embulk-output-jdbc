@@ -155,9 +155,9 @@ public class DirectBatchInsert implements BatchInsert
 
         TableDefinition tableDefinition = new TableDefinition(schema, loadTable, columns);
         ociKey = Arrays.asList(database, user, loadTable);
-        OCIWrapper oci = ociManager.open(ociKey, database, user, password, tableDefinition);
+        OCIWrapper oci = ociManager.open(ociKey, database, user, password, tableDefinition, batchSize / rowSize);
 
-        buffer = new RowBuffer(oci, tableDefinition, oci.getMaxRowCount() /*Math.max(batchSize / rowSize, 8)*/);
+        buffer = new RowBuffer(oci, tableDefinition);
     }
 
     @Override
