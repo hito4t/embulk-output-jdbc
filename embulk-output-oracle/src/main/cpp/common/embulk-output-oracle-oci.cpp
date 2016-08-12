@@ -1,7 +1,11 @@
 #include <occi.h>
 
 
-extern "C" __declspec(dllexport) sword embulk_output_oracle_OCIDirPathColArrayEntriesSet(
+extern "C" 
+#ifdef WIN32
+    __declspec(dllexport) 
+#endif 
+sword embulk_output_oracle_OCIDirPathColArrayEntriesSet(
         OCIDirPathColArray *dpca,
         OCIError *errhp,
         ub2 columnCount,
