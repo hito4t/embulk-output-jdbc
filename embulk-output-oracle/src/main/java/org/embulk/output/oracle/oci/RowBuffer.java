@@ -13,12 +13,21 @@ import org.embulk.output.oracle.oci.TableDefinition;
 
 public class RowBuffer
 {
+    // this value was calculated by tests
+    private static final double OPTIMAL_LOAD_TIME = 10;
+    private static final int MIN_ROW_COUNT_TO_LOAD = 100;
+
     private final OCIWrapper oci;
     private final TableDefinition table;
-    private final int rowCount;
+    private final int maxRowCount;
 
-    private int currentRow = 0;
+    private int rowCount = 0;
     private int currentColumn = 0;
+
+    private int rowCountToLoad;
+    private int totalLoadedRowCount = 0;
+    private int loadCount = 0;
+    private double totalLoadTime = 0;
 
     private final ByteBuffer sizes;
     private final ByteBuffer defaultSizes;
@@ -29,15 +38,16 @@ public class RowBuffer
     {
         this.oci = oci;
         this.table = table;
-        rowCount = oci.getMaxRowCount();
+        maxRowCount = oci.getMaxRowCount();
+        rowCountToLoad = maxRowCount;
 
         ByteOrder byteOrder = Runtime.getSystemRuntime().byteOrder();
         // should be direct because used by native library
-        buffer = ByteBuffer.allocateDirect(table.getRowSize() * rowCount).order(byteOrder);
+        buffer = ByteBuffer.allocateDirect(table.getRowSize() * maxRowCount).order(byteOrder);
         // position is not updated
         defaultBuffer = buffer.duplicate().order(byteOrder);
 
-        sizes = ByteBuffer.allocateDirect(table.getColumnCount() * rowCount * 2).order(byteOrder);
+        sizes = ByteBuffer.allocateDirect(table.getColumnCount() * maxRowCount * 2).order(byteOrder);
         defaultSizes = sizes.duplicate().order(byteOrder);
     }
 
@@ -80,9 +90,9 @@ public class RowBuffer
         currentColumn++;
         if (currentColumn == table.getColumnCount()) {
             currentColumn = 0;
-            currentRow++;
+            rowCount++;
 
-            if (currentRow >= rowCount) {
+            if (rowCount >= rowCountToLoad) {
                 flush();
             }
         }
@@ -95,15 +105,23 @@ public class RowBuffer
 
     public void flush() throws SQLException
     {
-        if (currentRow > 0) {
+        if (rowCount > 0) {
             synchronized (oci) {
-                oci.loadBuffer(defaultBuffer, defaultSizes, currentRow);
+                long time = System.currentTimeMillis();
+                oci.loadBuffer(defaultBuffer, defaultSizes, rowCount);
+                totalLoadTime += System.currentTimeMillis() - time;
+                totalLoadedRowCount += rowCount;
+                loadCount += 1;
             }
 
-            currentRow = 0;
+            rowCount = 0;
             currentColumn = 0;
             buffer.clear();
             sizes.clear();
+
+            if (loadCount >= 4) {
+                rowCountToLoad = Math.min(Math.max((int)(totalLoadedRowCount / totalLoadTime * OPTIMAL_LOAD_TIME), MIN_ROW_COUNT_TO_LOAD), maxRowCount);
+            }
         }
     }
 
