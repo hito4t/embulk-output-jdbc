@@ -64,6 +64,14 @@ public class BasicTest
     }
 
     @Test
+    public void testMerge() throws Exception
+    {
+        Path in1 = toPath("test_merge.csv");
+        TestingEmbulk.RunResult result1 = embulk.runOutput(baseConfig.merge(loadYamlResource(embulk, "test_merge.yml")), in1);
+        assertThat(selectRecords("test_merge", Arrays.asList("id", "value1", "value2")), is(readResource("test_merge_expected.csv")));
+    }
+
+    @Test
     public void testInvalidTimeZone() throws Exception
     {
         Path in1 = toPath("test1.csv");
