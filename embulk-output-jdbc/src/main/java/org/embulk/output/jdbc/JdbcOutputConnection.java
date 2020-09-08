@@ -199,12 +199,12 @@ public class JdbcOutputConnection
             Optional<String> tableConstraint, Optional<String> tableOption) throws SQLException
     {
         Statement stmt = connection.createStatement();
+        String sql = buildCreateTableSql(table, schema, tableConstraint, tableOption);
         try {
-            String sql = buildCreateTableSql(table, schema, tableConstraint, tableOption);
             executeUpdate(stmt, sql);
             commitIfNecessary(connection);
         } catch (SQLException ex) {
-            throw safeRollback(connection, ex);
+            throw safeRollback(connection, new SQLException("SQL=" + sql, ex));
         } finally {
             stmt.close();
         }
