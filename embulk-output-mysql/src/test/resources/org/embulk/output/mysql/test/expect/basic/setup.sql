@@ -6,7 +6,7 @@ create table test1 (
     str    char(8),
     varstr varchar(8),
     dt     date,
-    dttm0  datetime,
+    /* dttm0  datetime, */
     dttm3  datetime(3),
     primary key(id)
 );
